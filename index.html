@@ -1,0 +1,3721 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tortoise Generator</title>
+  <meta name="description" content="Shape the Tortoise fractal torus in your browser and repaint it with Stability AI, keeping its geometry as a structure reference. Open source.">
+  <style>
+    :root { color-scheme: dark; accent-color: #d4a329; }
+    * { box-sizing: border-box; }
+    html, body { width:100%; height:100%; margin:0; overflow:hidden; background:#080603; color:#f4e5b2; font-family:Inter,system-ui,sans-serif; }
+    canvas { display:block; }
+    #panel {
+      position:fixed; left:12px; top:12px; z-index:10;
+      width:min(470px, calc(100vw - 24px)); max-height:calc(100vh - 24px);
+      overflow:auto; padding:13px 14px; border-radius:12px;
+      background:rgba(18,13,5,.93); border:1px solid rgba(232,190,79,.28);
+      box-shadow:0 12px 40px rgba(0,0,0,.5); backdrop-filter:blur(10px);
+    }
+    h1 { font-size:15px; margin:0 0 7px; color:#ffe59a; }
+    h2 { font-size:12px; margin:10px 0 5px; color:#f1cd67; }
+    .sub { font-size:11px; line-height:1.48; color:#cdbb83; margin-bottom:9px; }
+    details { border-top:1px solid rgba(230,188,76,.16); border-bottom:1px solid rgba(230,188,76,.16); padding:7px 0; margin-bottom:9px; }
+    summary { cursor:pointer; font-size:12px; font-weight:700; color:#edca65; }
+    .eq { white-space:pre-wrap; font:10px/1.47 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; color:#ddcfaa; margin-top:7px; }
+    .section { margin:9px 0; padding:9px 10px; border-radius:9px; border:1px solid rgba(230,188,76,.15); background:rgba(255,214,100,.025); }
+    .row { display:grid; grid-template-columns:165px 1fr 72px; align-items:center; gap:7px; margin:7px 0; }
+    .row label { font-size:11px; color:#d7c58f; }
+    .row input:disabled { opacity:.3; }
+    .row:has(input:disabled) label, .row:has(input:disabled) output { opacity:.4; }
+    input[type="range"], input[type="number"], select { width:100%; }
+    input[type="number"], select, textarea, input[type="color"] {
+      color:#ffeeb6; background:rgba(255,220,110,.06);
+      border:1px solid rgba(255,215,99,.22); border-radius:6px; padding:5px 7px;
+    }
+    input[type="color"] { padding:1px; height:31px; }
+    .row input[type="text"] {
+      width:100%; min-width:0; color:#ffeeb6; background:rgba(255,220,110,.06);
+      border:1px solid rgba(255,215,99,.22); border-radius:6px; padding:5px 7px; font:11px ui-monospace,monospace;
+    }
+    .row select:disabled { opacity:.3; }
+    #nestChirality + output { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .row:has(select:disabled) label, .row:has(select:disabled) output { opacity:.4; }
+    output { font:10px ui-monospace,monospace; text-align:right; color:#e7cf86; }
+    .checks { display:grid; grid-template-columns:1fr 1fr; gap:6px 10px; margin:8px 0; }
+    .checks label { font-size:11px; display:flex; align-items:center; gap:6px; color:#d8c895; }
+    .buttons { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:7px; }
+    .buttons.three { grid-template-columns:1fr 1fr 1fr; }
+    button {
+      width:100%; border:1px solid rgba(245,204,84,.28); border-radius:8px;
+      padding:8px; background:rgba(218,166,38,.13); color:#ffe9a7; cursor:pointer;
+    }
+    button:hover { background:rgba(218,166,38,.21); }
+    #status { margin-top:8px; font:10px/1.46 ui-monospace,monospace; color:#bfae79; white-space:pre-wrap; }
+    #legend {
+      position:fixed; right:12px; bottom:12px; z-index:5; padding:9px 11px; border-radius:9px;
+      background:rgba(18,13,5,.84); border:1px solid rgba(230,188,76,.18);
+      font-size:10px; line-height:1.7; color:#d9c994;
+    }
+    .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; vertical-align:middle; }
+    #hiddenFile { display:none; }
+    #vignetteOverlay {
+      position:fixed; inset:0; z-index:2; pointer-events:none; opacity:1;
+      background:
+        radial-gradient(circle at 50% 44%, rgba(255,196,104,.055), rgba(255,150,50,.015) 42%, rgba(0,0,0,0) 62%),
+        radial-gradient(ellipse 78% 72% at 50% 46%, rgba(0,0,0,0) 46%, rgba(6,4,2,.34) 76%, rgba(4,2,1,.72) 100%);
+    }
+    #panel { width:min(420px, calc(100vw - 24px)); padding-top:16px; }
+    #panel::before, #metaPanel::before {
+      content:""; display:block; width:42px; height:1px; margin-bottom:12px;
+      background:linear-gradient(90deg,#f4d47c,rgba(244,212,124,0));
+    }
+    #metaPanel {
+      position:fixed; right:12px; top:12px; z-index:10;
+      width:min(390px, calc(100vw - 24px)); max-height:calc(100vh - 24px);
+      overflow:auto; padding:17px 18px 18px; border-radius:14px;
+      background:linear-gradient(145deg,rgba(22,15,7,.96),rgba(10,8,5,.94));
+      border:1px solid rgba(232,190,79,.3); box-shadow:0 18px 60px rgba(0,0,0,.58);
+      backdrop-filter:blur(14px);
+    }
+    #metaPanel h1 { font:500 25px/1.08 Georgia,serif; letter-spacing:-.02em; margin:0 0 7px; }
+    #metaPanel h2 { margin-top:18px; }
+    .panel-heading {
+      position:sticky; top:-7px; z-index:3; margin:-7px 0 3px; padding:7px 0 5px;
+      display:flex; align-items:flex-start; justify-content:space-between; gap:14px;
+    }
+    #panel .panel-heading { background:rgba(18,13,5,.97); }
+    #metaPanel .panel-heading { background:linear-gradient(145deg,rgba(22,15,7,.99),rgba(13,9,5,.98)); }
+    .panel-heading-copy { min-width:0; }
+    #panel .panel-heading h1 { margin:0; line-height:30px; }
+    #metaPanel .panel-heading h1 { margin:2px 0 7px; }
+    .panel-toggle {
+      flex:0 0 30px; width:30px; height:30px; padding:0; display:grid; place-items:center;
+      border-radius:50%; font:500 18px/1 ui-monospace,monospace; color:#e8ce83;
+      background:rgba(255,218,112,.06); border-color:rgba(245,204,84,.2);
+    }
+    .panel-toggle:hover, .panel-toggle:focus-visible { background:rgba(218,166,38,.2); outline:2px solid rgba(244,205,99,.2); outline-offset:2px; }
+    #panel, #metaPanel {
+      overflow-y:auto; overflow-x:hidden; overscroll-behavior:contain;
+      scrollbar-width:thin; scrollbar-color:rgba(232,190,79,.45) transparent;
+    }
+    #panel::-webkit-scrollbar, #metaPanel::-webkit-scrollbar { width:8px; }
+    #panel::-webkit-scrollbar-track, #metaPanel::-webkit-scrollbar-track { background:transparent; }
+    #panel::-webkit-scrollbar-thumb, #metaPanel::-webkit-scrollbar-thumb {
+      background:rgba(232,190,79,.38); border-radius:8px; border:2px solid transparent; background-clip:padding-box;
+    }
+    #panel::-webkit-scrollbar-thumb:hover, #metaPanel::-webkit-scrollbar-thumb:hover { background-color:rgba(232,190,79,.6); }
+    #panel.is-collapsed, #metaPanel.is-collapsed {
+      width:auto; max-height:58px; overflow:hidden; padding:10px 11px;
+    }
+    #panel.is-collapsed::before, #metaPanel.is-collapsed::before { display:none; }
+    #panel.is-collapsed .panel-content, #metaPanel.is-collapsed .panel-content { display:none; }
+    #panel.is-collapsed .panel-heading h1, #metaPanel.is-collapsed .panel-heading h1 { margin:0; white-space:nowrap; line-height:30px; }
+    #metaPanel.is-collapsed .panel-heading .eyebrow { display:none; }
+    .eyebrow { color:#d5a83e; font:700 9px/1.2 ui-monospace,monospace; letter-spacing:.18em; text-transform:uppercase; }
+    .field { margin:12px 0; }
+    .field > label { display:block; margin:0 0 6px; color:#d9c895; font-size:11px; }
+    .field input[type="text"], .field input[type="url"], .field textarea {
+      width:100%; color:#fff0bd; background:rgba(255,225,145,.055);
+      border:1px solid rgba(255,215,99,.2); border-radius:8px; padding:9px 10px;
+      outline:none; font:12px/1.5 Inter,system-ui,sans-serif;
+    }
+    .field textarea { min-height:108px; resize:vertical; }
+    .field input:focus, .field textarea:focus { border-color:rgba(244,202,92,.62); box-shadow:0 0 0 3px rgba(218,166,38,.08); }
+    .field-note { margin-top:5px; font-size:9px; line-height:1.45; color:#918563; }
+    .thumb-frame {
+      position:relative; aspect-ratio:16/10; overflow:hidden; display:grid; place-items:center;
+      border:1px dashed rgba(239,198,87,.3); border-radius:10px; margin:8px 0;
+      background:radial-gradient(circle at 50% 45%,rgba(194,132,32,.16),rgba(7,5,3,.72) 64%);
+    }
+    .thumb-frame img { width:100%; height:100%; object-fit:contain; background:#0b0804; }
+    .thumb-frame span { max-width:220px; text-align:center; color:#8f815e; font-size:10px; line-height:1.5; padding:20px; }
+    .primary-action {
+      padding:12px 14px; margin-top:5px; color:#1a1004; font-weight:800;
+      background:linear-gradient(135deg,#f6da84,#c89125); border-color:#f5d87d;
+      box-shadow:0 8px 26px rgba(190,128,24,.18);
+    }
+    .primary-action:hover { background:linear-gradient(135deg,#ffe49a,#d7a033); }
+    .parameter-preview {
+      display:block; width:100%; max-height:76px; overflow:auto; padding:8px; border-radius:7px;
+      background:rgba(0,0,0,.28); color:#a99970; border:1px solid rgba(238,198,85,.12);
+      font:9px/1.45 ui-monospace,monospace; word-break:break-all;
+    }
+    .composer-mark {
+      position:fixed; left:50%; top:18px; transform:translateX(-50%); z-index:4; pointer-events:none;
+      text-align:center; color:rgba(255,229,154,.82); text-shadow:0 2px 18px #000;
+    }
+    .composer-mark b { display:block; font:500 19px/1 Georgia,serif; letter-spacing:.12em; }
+    .composer-mark span { font:8px ui-monospace,monospace; text-transform:uppercase; letter-spacing:.22em; color:#b8954f; }
+    @media (max-width:1100px) {
+      #panel { width:360px; }
+      #metaPanel { width:340px; }
+    }
+    @media (max-width:760px) {
+      html, body { overflow:auto; min-height:100%; }
+      #panel, #metaPanel { position:relative; inset:auto; width:calc(100% - 20px); max-height:none; margin:10px; }
+      #metaPanel { z-index:11; }
+      .composer-mark, #legend { display:none; }
+      body > canvas { position:fixed; inset:0; z-index:0; }
+      #panel, #metaPanel { z-index:10; }
+    }
+    .key-row { display:grid; grid-template-columns:1fr auto; gap:7px; }
+    .key-row button { width:auto; padding:8px 12px; white-space:nowrap; }
+    #generatorStatus { min-height:32px; margin:10px 0 2px; color:#b9a777; font:10px/1.55 ui-monospace,monospace; white-space:pre-wrap; }
+    #generatorStatus.is-error { color:#efad92; }
+    #generatorStatus.is-busy::after {
+      content:""; display:inline-block; width:8px; height:8px; margin-left:6px; vertical-align:middle;
+      border:1.5px solid rgba(244,205,99,.3); border-top-color:#f4cd63; border-radius:50%;
+      animation:spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .primary-action[disabled] { opacity:.45; cursor:not-allowed; filter:grayscale(.4); }
+    button[disabled] { opacity:.4; cursor:not-allowed; }
+    #resultPreview { aspect-ratio:auto; min-height:150px; }
+    #resultPreview img { cursor:zoom-in; }
+    #genHistory { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-top:8px; }
+    .gen-item { position:relative; aspect-ratio:1; border-radius:6px; overflow:hidden; border:1px solid rgba(238,198,85,.18); background:#0b0804; cursor:pointer; padding:0; }
+    .gen-item img { width:100%; height:100%; object-fit:cover; display:block; }
+    .gen-item.is-active { border-color:#f4cd63; box-shadow:0 0 0 2px rgba(244,205,99,.22); }
+    .balance-tag { float:right; font:9px ui-monospace,monospace; color:#d5a83e; letter-spacing:.06em; }
+
+    .key-help-toggle { width:auto; margin-top:6px; padding:5px 10px; font-size:10px; }
+    #keyHelp { display:none; margin:8px 0 2px; padding:10px 12px; border:1px solid rgba(238,198,85,.18);
+      border-radius:8px; background:rgba(20,14,6,.72); font-size:11px; line-height:1.6; color:#d8c9a2; }
+    #keyHelp.open { display:block; }
+    #keyHelp ol { margin:4px 0 6px 18px; padding:0; }
+    #keyHelp a, .repo-link a { color:#f4cd63; }
+    .repo-link { margin:14px 0 4px; font:10px/1.6 ui-monospace,monospace; color:#b8954f; letter-spacing:.04em; }
+</style>
+  <script type="importmap">
+  {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/"}}
+  </script>
+</head>
+<body>
+  <aside id="panel">
+    <div class="panel-heading">
+      <h1>Tortoise parameters</h1>
+      <button class="panel-toggle" type="button" aria-controls="parameterPanelContent" aria-expanded="true" aria-label="Minimize parameter panel">−</button>
+    </div>
+    <div class="panel-content" id="parameterPanelContent">
+    <div class="sub">Shape the toroidal artwork, orbit to the precise viewing angle, then describe the symbol it reveals. Structural controls commit on release to keep the recursive system stable.</div>
+
+    <details>
+      <summary>Equation</summary>
+      <div class="eq">P(u,v)=(cos u,sin u,cos v)/(√2−sin v)
+Γ_k^+(t;d)=P(t+2πk/m+dδ,t)
+Γ_l^−(t;d)=P(−t+2πl/m−dδ,t)
+K_d=⋃_kΓ_k^+(S¹;d)∪⋃_lΓ_l^−(S¹;d)
+
+a_k^d=2π(k+1/2)/m+dδ,   b_l^d=2π(l+1/2)/m−dδ
+s_{klq}^d=P((a_k^d+b_l^d)/2+qπ,(b_l^d−a_k^d)/2+qπ)
+Σ_d={s_{klq}^d:k,l∈{0,…,m−1},q∈{0,1}}
+g_d(s)=dist(s,K_d)
+Q_d(s)=the oriented tangent-frame rotation of P at s
+
+M_{d,0}=1+√2
+M_{d,L}=max{1+√2, max_{s∈Σ_d}(||s||+ηg_d(s))}
+ρ_{d,L}(s)=ηg_d(s)/M_{d+1,L−1}
+
+A_{d,0}=K_d
+A_{d,L}=K_d∪⋃_{s∈Σ_d}[s+ρ_{d,L}(s)Q_d(s)A_{d+1,L−1}],
+0&lt;η≤1.</div>
+    </details>
+
+    <div class="section">
+      <h2>Fractal structure</h2>
+      <div class="row"><label for="m">Fibers / chirality m</label><input id="m" type="number" min="1" step="1" value="6"><output></output></div>
+      <div class="row"><label for="levels">Recursive levels L</label><input id="levels" type="range" min="0" max="5" step="1" value="2"><output></output></div>
+      <div class="row"><label for="delta">Detuning δ</label><input id="delta" type="range" min="0" max="0.8" step="0.01" value="0.04"><output></output></div>
+<div class="row"><label for="aFill">Gap fill η</label><input id="aFill" type="range" min="0.05" max="4" step="0.01" value="0.84"><output></output></div>
+      <div class="row"><label for="holeRatio">Center hole</label><input id="holeRatio" type="range" min="0.005" max="0.9" step="0.001" value="0.172"><output></output></div>
+      <div class="row"><label for="profile">Main profile flat&harr;egg</label><input id="profile" type="range" min="0.15" max="3" step="0.01" value="1"><output></output></div>
+      <div class="row"><label for="childHeight">Child height &times; native</label><input id="childHeight" type="range" min="0.15" max="20" step="0.01" value="1"><output></output></div>
+      <div class="row"><label for="bridge">Bridge hourglass&harr;cylinder</label><input id="bridge" type="range" min="0" max="1" step="0.005" value="0"><output></output></div>
+      <div class="row"><label for="evenNodes">Even node spread</label><input id="evenNodes" type="checkbox"><output></output></div>
+      <div class="row"><label for="lodStrength">Depth LOD</label><input id="lodStrength" type="range" min="0" max="1" step="0.01" value="0"><output></output></div>
+      <div class="row"><label for="samples">Curve samples</label><input id="samples" type="range" min="24" max="192" step="8" value="72"><output></output></div>
+      <div class="row"><label for="budget">Node budget</label><input id="budget" type="range" min="100" max="500000" step="100" value="174000"><output></output></div>
+    </div>
+
+    <div class="section">
+      <h2>Nested Hopf tori</h2>
+      <div class="row"><label for="nestedTori">Nested Hopf tori</label><input id="nestedTori" type="checkbox"><output></output></div>
+      <div class="row"><label for="nestedLevels">Nesting levels</label><input id="nestedLevels" type="range" min="1" max="8" step="1" value="3"><output></output></div>
+      <div class="row"><label for="nestChirality">Nest m, outer&rarr;inner</label><input id="nestChirality" type="text" placeholder="same as m, or 12-6-2" spellcheck="false" autocomplete="off"><output></output></div>
+      <div class="row"><label for="nestSpacing">Nest spacing</label><select id="nestSpacing">
+        <option value="even" selected>Even</option>
+        <option value="golden">Golden ratio</option>
+        <option value="projected">Golden ratio, projected from S&sup3;</option>
+      </select><output></output></div>
+      <div class="row"><label for="nestFractalLevels">Nest fractal levels</label><input id="nestFractalLevels" type="range" min="0" max="5" step="1" value="0"><output></output></div>
+      <div class="row"><label for="nestedShells">Nest shells</label><input id="nestedShells" type="checkbox" checked><output></output></div>
+      <div class="row"><label for="nestShellOpacity">Nest shell opacity</label><input id="nestShellOpacity" type="range" min="0.03" max="1" step="0.01" value="0.35"><output></output></div>
+      <div class="row"><label for="nestParticles">Nest particles</label><input id="nestParticles" type="checkbox"><output></output></div>
+      <div class="row"><label for="nestColorMix">Nest colour shift</label><input id="nestColorMix" type="range" min="0" max="1" step="0.01" value="0"><output></output></div>
+      <div class="row"><label for="nestPlusColor">Innermost positive</label><input id="nestPlusColor" type="color" value="#6b2a8c"><output></output></div>
+      <div class="row"><label for="nestMinusColor">Innermost negative</label><input id="nestMinusColor" type="color" value="#ffb3e6"><output></output></div>
+    </div>
+
+    <div class="section">
+      <h2>Display & geometry</h2>
+      <div class="row"><label for="backgroundColor">Background</label><input id="backgroundColor" type="color" value="#050302"><output></output></div>
+      <div class="row"><label for="exposure">Tone exposure</label><input id="exposure" type="range" min="0.4" max="2.5" step="0.01" value="1.32"><output></output></div>
+      <div class="row"><label for="fogDensity">Fog density</label><input id="fogDensity" type="range" min="0" max="0.08" step="0.001" value="0"><output></output></div>
+      <div class="row"><label for="depthFade">Depth fade</label><input id="depthFade" type="range" min="0" max="0.22" step="0.005" value="0.21"><output></output></div>
+      <div class="row"><label for="depthSatFade">Depth desaturation</label><input id="depthSatFade" type="range" min="0" max="0.2" step="0.005" value="0.015"><output></output></div>
+      <div class="row"><label for="fiberOpacity">Fiber opacity</label><input id="fiberOpacity" type="range" min="0.05" max="1" step="0.01" value="0.92"><output></output></div>
+      <div class="row"><label for="torusOpacity">Torus opacity</label><input id="torusOpacity" type="range" min="0.03" max="1" step="0.01" value="0.98"><output></output></div>
+      <div class="row"><label for="torusMetalness">Torus metalness</label><input id="torusMetalness" type="range" min="0" max="1" step="0.01" value="0.57"><output></output></div>
+      <div class="row"><label for="torusRoughness">Torus roughness</label><input id="torusRoughness" type="range" min="0" max="1" step="0.01" value="0.46"><output></output></div>
+      <div class="row"><label for="emissiveStrength">Torus glow</label><input id="emissiveStrength" type="range" min="0" max="1.5" step="0.01" value="0.34"><output></output></div>
+    </div>
+
+    <div class="section">
+      <h2>Animation</h2>
+      <div class="sub" style="margin:0 0 6px">The two chirality families counter-rotate by &alpha;(t). Rotation about a node's local z is exactly a phase shift on this parametrisation, but it slides the interstitial sites along a meridian &mdash; so the whole tree is re-solved each frame and the children follow their gaps.</div>
+      <div class="row"><label for="animate">Animate</label><input id="animate" type="checkbox" checked><output></output></div>
+      <div class="row"><label for="alphaSpeed">Counter-rotation &alpha;/s</label><input id="alphaSpeed" type="range" min="0" max="0.5" step="0.005" value="0.18"><output></output></div>
+      <div class="row"><label for="flowSpeed">Particle flow</label><input id="flowSpeed" type="range" min="0" max="4" step="0.05" value="1"><output></output></div>
+      <div class="row"><label for="showParticles">Show particles</label><input id="showParticles" type="checkbox" checked><output></output></div>
+      <div class="row"><label for="insideSizeShift">Shrink inside torus</label><input id="insideSizeShift" type="checkbox" checked><output></output></div>
+      <div class="row"><label for="particleSizeInside">Particle size (inside)</label><input id="particleSizeInside" type="range" min="0.2" max="24" step="0.1" value="1"><output></output></div>
+      <div class="row"><label for="particleSize">Particle size</label><input id="particleSize" type="range" min="1" max="24" step="0.5" value="3"><output></output></div>
+      <div class="row"><label for="particleAlpha">Particle brightness</label><input id="particleAlpha" type="range" min="0" max="1.5" step="0.01" value="1.09"><output></output></div>
+      <div class="row"><label for="particleTrains">Trains / fiber</label><input id="particleTrains" type="range" min="1" max="24" step="1" value="24"><output></output></div>
+      <div class="row"><label for="particleTail">Tail length</label><input id="particleTail" type="range" min="1" max="24" step="1" value="16"><output></output></div>
+      <div class="row"><label for="particleDepthFalloff">Density per level</label><input id="particleDepthFalloff" type="range" min="0" max="1" step="0.01" value="0.28"><output></output></div>
+      <div class="row"><label for="particleGate">Visibility gate px</label><input id="particleGate" type="range" min="0" max="30" step="0.5" value="0"><output></output></div>
+    </div>
+
+    <div class="section">
+      <h2>Gold shading</h2>
+      <div class="row"><label for="envIntensity">Reflection intensity</label><input id="envIntensity" type="range" min="0" max="3" step="0.01" value="1.39"><output></output></div>
+      <div class="row"><label for="sheenStrength">Fiber sheen</label><input id="sheenStrength" type="range" min="0" max="1" step="0.01" value="0.64"><output></output></div>
+      <div class="row"><label for="sheenSharpness">Sheen sharpness</label><input id="sheenSharpness" type="range" min="1" max="16" step="0.5" value="13"><output></output></div>
+      <div class="row"><label for="bloomStrength">Bloom strength</label><input id="bloomStrength" type="range" min="0" max="2" step="0.01" value="0.8"><output></output></div>
+      <div class="row"><label for="bloomRadius">Bloom radius</label><input id="bloomRadius" type="range" min="0" max="1.5" step="0.01" value="0.65"><output></output></div>
+      <div class="row"><label for="bloomThreshold">Bloom threshold</label><input id="bloomThreshold" type="range" min="0" max="1" step="0.01" value="0.23"><output></output></div>
+      <div class="row"><label for="bloomKnee">Bloom knee</label><input id="bloomKnee" type="range" min="0.01" max="1" step="0.01" value="0.3"><output></output></div>
+      <div class="row"><label for="bloomSpread">Glow spread</label><input id="bloomSpread" type="range" min="0.3" max="3" step="0.01" value="1"><output></output></div>
+      <div class="row"><label for="vignette">Vignette</label><input id="vignette" type="range" min="0" max="1" step="0.01" value="0.62"><output></output></div>
+      <div class="row"><label for="sheenColor">Sheen highlight</label><input id="sheenColor" type="color" value="#fff4d6"><output></output></div>
+    </div>
+
+    <div class="section">
+      <h2>Camera</h2>
+      <div class="row"><label for="cameraView">Default / active view</label><select id="cameraView"><option value="side">side</option><option value="top">top</option><option value="bottom" selected>bottom</option><option value="iso">isometric</option></select><output></output></div>
+      <div class="row"><label for="cameraDistance">Camera distance</label><input id="cameraDistance" type="range" min="2" max="30" step="0.1" value="8.5"><output></output></div>
+      <div class="row"><label for="topBottomSnapEpsilon">Pole snap ε</label><input id="topBottomSnapEpsilon" type="range" min="0.001" max="0.15" step="0.001" value="0.031"><output></output></div>
+      <div class="checks">
+        <label><input id="lockAtTopBottom" type="checkbox"> Lock exact top / bottom</label>
+      </div>
+      <div class="buttons three">
+        <button id="snapSide">Side view</button>
+        <button id="snapTop">Top view</button>
+        <button id="snapBottom">Bottom view</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Depth of field</h2>
+      <div class="sub" style="margin:0 0 6px">Focus is measured as a fraction of the distance from the camera to the orbit centre, so it holds as you zoom. Costs a second scene pass while enabled.</div>
+      <div class="row"><label for="dofEnabled">Depth of field</label><input id="dofEnabled" type="checkbox"><output></output></div>
+      <div class="row"><label for="dofFocus">Focus &times; orbit distance</label><input id="dofFocus" type="range" min="0.2" max="2" step="0.01" value="1"><output></output></div>
+      <div class="row"><label for="dofRange">Sharp zone</label><input id="dofRange" type="range" min="0.01" max="1" step="0.01" value="0.18"><output></output></div>
+      <div class="row"><label for="dofBlur">Max blur px</label><input id="dofBlur" type="range" min="1" max="24" step="0.5" value="6"><output></output></div>
+    </div>
+
+    <div class="section">
+      <h2>Colors</h2>
+      <div class="row"><label for="plusColor">Positive chirality</label><input id="plusColor" type="color" value="#8a4a08"><output></output></div>
+      <div class="row"><label for="minusColor">Negative chirality</label><input id="minusColor" type="color" value="#ffc85e"><output></output></div>
+      <div class="row"><label for="torusColor">Carrier torus</label><input id="torusColor" type="color" value="#3e3218"><output></output></div>
+      <div class="row"><label for="emissiveColor">Glow color</label><input id="emissiveColor" type="color" value="#47002d"><output></output></div>
+    </div>
+
+    <div class="checks">
+      <label><input id="hideAllFibers" type="checkbox"> Hide all fibers</label>
+      <label><input id="hideRootFibers" type="checkbox"> Hide level-0 fibers</label>
+      <label><input id="showTori" type="checkbox" checked> Nested carrier tori</label>
+      <label><input id="showRootTorus" type="checkbox" checked> Root carrier torus</label>
+    </div>
+
+    <div class="section">
+      <h2>Crossing lattice</h2>
+      <div class="row"><label for="crossingMode">Join</label><select id="crossingMode">
+        <option value="crossings" selected>Fibre crossings</option>
+        <option value="centres">Torus centres</option>
+        <option value="e8">E8 shadow, nearest in 4D</option>
+        <option value="e8links">E8 links, golden shells in 4D</option>
+      </select><output></output></div>
+      <div class="checks">
+        <label><input id="crossingLattice" type="checkbox"> Connect crossings</label>
+        <label><input id="crossingPoints" type="checkbox" checked> Crossing points</label>
+        <label><input id="crossingRootOnly" type="checkbox" checked> Root torus only</label>
+        <label><input id="crossingNests" type="checkbox" checked> Nest lattices</label>
+        <label><input id="crossingJoinNests" type="checkbox"> Join nests</label>
+      </div>
+      <div class="row"><label for="crossingOpacity">Lattice opacity</label><input id="crossingOpacity" type="range" min="0.05" max="1" step="0.01" value="0.9"><output></output></div>
+      <div class="row"><label for="crossingColor">Lattice colour</label><input id="crossingColor" type="color" value="#9fe8ff"><output></output></div>
+    </div>
+
+    <div class="buttons three">
+      <button id="rebuild">Rebuild</button>
+      <button id="exportJson">Export preset JSON</button>
+      <button id="importJson">Import preset JSON</button>
+    </div>
+    <div class="buttons">
+      <button id="copyJson">Copy preset to clipboard</button>
+      <button id="resetPreset">Reset gold preset</button>
+    </div>
+    <input id="hiddenFile" type="file" accept="application/json,.json" />
+    <div id="status"></div>
+    </div>
+  </aside>
+
+  <div class="composer-mark"><b>TORTOISE</b><span>ai generator</span></div>
+
+  <aside id="metaPanel">
+    <div class="panel-heading">
+      <div class="panel-heading-copy"><div class="eyebrow">Stability AI &middot; control structure</div><h1>Generate</h1></div>
+      <button class="panel-toggle" type="button" aria-controls="generatorPanelContent" aria-expanded="true" aria-label="Minimize generator panel">&minus;</button>
+    </div>
+    <div class="panel-content" id="generatorPanelContent">
+    <div class="sub">The rendered view is sent as a structure reference. Stability holds its geometry and repaints it to your prompt. Uncheck <em>Animate</em> on the left before capturing so the frame is the one you meant.</div>
+
+    <div class="field">
+      <label for="apiKey">Stability API key <span class="balance-tag" id="balanceTag"></span></label>
+      <div class="key-row">
+        <input id="apiKey" type="password" placeholder="sk-&hellip;" autocomplete="off" spellcheck="false" />
+        <button id="testKey" type="button">Test</button>
+      </div>
+      <div class="field-note">Held in this browser&rsquo;s localStorage and sent only to api.stability.ai.</div>
+        <button class="key-help-toggle" id="keyHelpToggle" type="button" aria-expanded="false" aria-controls="keyHelp">How to get a key</button>
+        <div id="keyHelp">
+          <ol>
+            <li>Create an account or sign in at <a href="https://platform.stability.ai" target="_blank" rel="noopener">platform.stability.ai</a>.</li>
+            <li>Open <a href="https://platform.stability.ai/account/keys" target="_blank" rel="noopener">Account &rsaquo; API keys</a> and copy your key. It starts with <code>sk-</code>.</li>
+            <li>Check your credits under <a href="https://platform.stability.ai/account/credits" target="_blank" rel="noopener">Account &rsaquo; Billing</a> and buy more if needed. Each image here costs 3 credits.</li>
+            <li>Paste the key above and press <b>Test</b>.</li>
+          </ol>
+          Treat the key like a password: it can spend your credits.
+        </div>
+    </div>
+
+    <h2>Structure reference</h2>
+    <div class="section">
+      <div class="row"><label for="referenceMode">Reference</label><select id="referenceMode">
+          <option value="render">Rendered view</option>
+          <option value="depth">Depth pass</option>
+        </select><output></output></div>
+      <div class="row"><label for="invertDepth">Invert depth</label><input id="invertDepth" type="checkbox"><output></output></div>
+    </div>
+    <div class="thumb-frame" id="controlPreview"><span>Capture the current view to use it as the structure reference.</span></div>
+    <div class="buttons">
+      <button id="captureView" type="button">Capture view</button>
+      <button id="downloadControl" type="button" disabled>Save reference</button>
+    </div>
+    <div class="field-note" id="controlMeta">Nothing captured yet.</div>
+
+    <h2>Prompt</h2>
+    <div class="field">
+      <textarea id="promptText" maxlength="10000" placeholder="Describe what should be rendered over this structure&hellip;"></textarea>
+    </div>
+    <div class="field">
+      <label for="negativePrompt">Negative prompt</label>
+      <input id="negativePrompt" type="text" maxlength="10000" placeholder="what to avoid" />
+    </div>
+
+    <div class="section">
+      <div class="row"><label for="controlStrength">Structure fidelity</label><input id="controlStrength" type="range" min="0" max="1" step="0.01" value="0.7"><output></output></div>
+      <div class="row"><label for="stylePreset">Style preset</label><select id="stylePreset">
+          <option value="">none</option>
+          <option value="3d-model">3d model</option>
+          <option value="analog-film">analog film</option>
+          <option value="anime">anime</option>
+          <option value="cinematic">cinematic</option>
+          <option value="comic-book">comic book</option>
+          <option value="digital-art">digital art</option>
+          <option value="enhance">enhance</option>
+          <option value="fantasy-art">fantasy art</option>
+          <option value="isometric">isometric</option>
+          <option value="line-art">line art</option>
+          <option value="low-poly">low poly</option>
+          <option value="modeling-compound">modeling compound</option>
+          <option value="neon-punk">neon punk</option>
+          <option value="origami">origami</option>
+          <option value="photographic">photographic</option>
+          <option value="pixel-art">pixel art</option>
+          <option value="tile-texture">tile texture</option>
+        </select><output></output></div>
+      <div class="row"><label for="outputFormat">Output format</label><select id="outputFormat">
+          <option value="png">png</option>
+          <option value="jpeg">jpeg</option>
+          <option value="webp">webp</option>
+        </select><output></output></div>
+      <div class="row"><label for="seedValue">Seed &middot; 0 random</label><input id="seedValue" type="number" min="0" max="4294967294" step="1" value="0"><output></output></div>
+    </div>
+
+    <button id="generate" class="primary-action" type="button">Generate &middot; 3 credits</button>
+    <div id="generatorStatus" role="status" aria-live="polite"></div>
+
+    <h2>Result</h2>
+    <div class="thumb-frame" id="resultPreview"><span>Generated images appear here.</span></div>
+    <div class="buttons">
+      <button id="downloadResult" type="button" disabled>Download</button>
+      <button id="openResult" type="button" disabled>Open full size</button>
+    </div>
+
+    <div class="field">
+      <label>Edition parameters</label>
+      <output id="parameterPreview" class="parameter-preview"></output>
+      <div class="field-note">The artwork state behind the capture, saved beside every download.</div>
+    </div>
+
+    <h2>This session</h2>
+    <div id="genHistory"></div>
+    <div class="repo-link">Tortoise by <a href="https://nurecas.com?ref=tortoise_generator" target="_blank" rel="noopener">nurecas.com</a> &middot; open source on <a href="https://github.com/nurecas/tortoise_generator" target="_blank" rel="noopener">GitHub</a></div>
+    </div>
+  </aside>
+
+  <div id="legend">
+    <div><span class="dot" id="legendPlus"></span>positive chirality fibers</div>
+    <div><span class="dot" id="legendMinus"></span>negative chirality fibers</div>
+    <div><span class="dot" id="legendTorus"></span>carrier tori</div>
+    <div>colors darken and soften with depth</div>
+  </div>
+
+  <div id="vignetteOverlay"></div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+const defaults = {
+  dofEnabled: false,
+  dofFocus: 1,
+  dofRange: 0.18,
+  dofBlur: 6,
+  m: 6,
+  levels: 2,
+  delta: 0.04,
+  aFill: 0.84,
+  holeRatio: 0.171573,
+  profile: 1,
+  childHeight: 1,
+  bridge: 0,
+  nestedTori: false,
+  nestedLevels: 3,
+  nestedShells: true,
+  nestChirality: "",
+  nestSpacing: "even",
+  nestFractalLevels: 0,
+  nestShellOpacity: 0.35,
+  nestParticles: false,
+  nestColorMix: 0,
+  nestPlusColor: "#6b2a8c",
+  nestMinusColor: "#ffb3e6",
+  evenNodes: false,
+  lodStrength: 0,
+  samples: 72,
+  nodeBudget: 174000,
+  animate: true,
+  alphaSpeed: 0.18,
+  flowSpeed: 1,
+  showParticles: true,
+  particleSize: 3,
+  insideSizeShift: true,
+  particleSizeInside: 1,
+  particleAlpha: 1.09,
+  particleTrains: 24,
+  particleTail: 16,
+  particleDepthFalloff: 0.28,
+  particleGate: 0,
+
+  hideAllFibers: false,
+  hideRootFibers: false,
+  crossingLattice: false,
+  crossingMode: "crossings",
+  crossingPoints: true,
+  crossingRootOnly: true,
+  crossingOpacity: 0.9,
+  crossingColor: "#9fe8ff",
+  crossingNests: true,
+  crossingJoinNests: false,
+  showTori: true,
+  showRootTorus: true,
+
+  cameraView: "bottom",
+  cameraDistance: 8.5,
+  lockAtTopBottom: false,
+  topBottomSnapEpsilon: 0.031,
+
+  backgroundColor: "#050302",
+  exposure: 1.32,
+  fogDensity: 0,
+  depthFade: 0.21,
+  depthSatFade: 0.015,
+  fiberOpacity: 0.92,
+  torusOpacity: 0.98,
+  torusMetalness: 0.57,
+  torusRoughness: 0.46,
+  emissiveStrength: 0.34,
+
+  envIntensity: 1.39,
+  sheenStrength: 0.64,
+  sheenSharpness: 13,
+  bloomStrength: 0.8,
+  bloomKnee: 0.3,
+  bloomSpread: 1,
+  bloomRadius: 0.65,
+  bloomThreshold: 0.23,
+  vignette: 0.62,
+
+  plusColor: "#8a4a08",
+  minusColor: "#ffc85e",
+  torusColor: "#3e3218",
+  emissiveColor: "#47002d",
+  sheenColor: "#fff4d6"
+};
+
+const formula = structuredClone(defaults);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(48, innerWidth / innerHeight, 0.01, 300);
+camera.up.set(0, 1, 0);
+camera.position.set(8.5, 0, 0);
+
+const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance', stencil: false, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+document.body.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.055;
+controls.target.set(0, 0, 0);
+controls.minPolarAngle = 0;
+controls.maxPolarAngle = Math.PI;
+controls.minAzimuthAngle = -Infinity;
+controls.maxAzimuthAngle = Infinity;
+
+let renderPending = true;
+function requestRender() { renderPending = true; }
+controls.addEventListener('change', requestRender);
+
+scene.add(new THREE.HemisphereLight(0xffe7a8, 0x160b02, 0.55));
+const key = new THREE.DirectionalLight(0xfff1bd, 1.5);
+key.position.set(5, 7, 6);
+scene.add(key);
+const warmRim = new THREE.PointLight(0xff9b28, 13, 26, 2);
+warmRim.position.set(-4, -1, 5);
+scene.add(warmRim);
+const paleRim = new THREE.PointLight(0xffdf8b, 8, 22, 2);
+paleRim.position.set(3, -5, -2);
+scene.add(paleRim);
+
+function buildGoldEnvironment() {
+  const w = 1024, h = 512;
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const g = canvas.getContext('2d');
+
+  const sky = g.createLinearGradient(0, 0, 0, h);
+  sky.addColorStop(0.00, '#120c04');
+  sky.addColorStop(0.30, '#5c3d12');
+  sky.addColorStop(0.46, '#d19b4c');
+  sky.addColorStop(0.53, '#f6dda2');
+  sky.addColorStop(0.62, '#4a3010');
+  sky.addColorStop(1.00, '#080502');
+  g.fillStyle = sky;
+  g.fillRect(0, 0, w, h);
+
+  const card = (cx, cy, rx, ry, color, alpha) => {
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    g.translate(cx, cy);
+    g.scale(rx / ry, 1);
+    const rg = g.createRadialGradient(0, 0, 0, 0, 0, ry);
+    rg.addColorStop(0, `rgba(${color},${alpha})`);
+    rg.addColorStop(1, `rgba(${color},0)`);
+    g.fillStyle = rg;
+    g.fillRect(-ry, -ry, ry * 2, ry * 2);
+    g.restore();
+  };
+
+  card(w * 0.26, h * 0.28, w * 0.20, h * 0.26, '255,240,205', 0.85);
+  card(w * 0.74, h * 0.40, w * 0.17, h * 0.22, '255,176,72', 0.70);
+  card(w * 0.52, h * 0.16, w * 0.09, h * 0.11, '255,252,240', 0.95);
+  card(w * 0.05, h * 0.62, w * 0.13, h * 0.16, '184,120,38', 0.45);
+  card(w * 0.92, h * 0.70, w * 0.12, h * 0.15, '120,72,24', 0.40);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.mapping = THREE.EquirectangularReflectionMapping;
+  texture.colorSpace = THREE.SRGBColorSpace;
+
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  pmrem.compileEquirectangularShader();
+  const envMap = pmrem.fromEquirectangular(texture).texture;
+  texture.dispose();
+  pmrem.dispose();
+  return envMap;
+}
+
+const goldEnvironment = buildGoldEnvironment();
+scene.environment = goldEnvironment;
+
+const composerTarget = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 });
+const composer = new EffectComposer(renderer, composerTarget);
+composer.setSize(innerWidth, innerHeight);
+composer.addPass(new RenderPass(scene, camera));
+
+const DOF_DEPTH_SCALE = 0.5;
+let dofDepthTarget = null;
+
+const dofPass = new ShaderPass({
+  uniforms: {
+    tDiffuse: { value: null },
+    tDepth: { value: null },
+    resolution: { value: new THREE.Vector2(1, 1) },
+    cameraNear: { value: 0.1 },
+    cameraFar: { value: 100 },
+    focusDistance: { value: 8.5 },
+    focusRange: { value: 1 },
+    maxBlur: { value: 6 }
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `
+    precision highp float;
+    varying vec2 vUv;
+    uniform sampler2D tDiffuse;
+    uniform sampler2D tDepth;
+    uniform vec2 resolution;
+    uniform float cameraNear;
+    uniform float cameraFar;
+    uniform float focusDistance;
+    uniform float focusRange;
+    uniform float maxBlur;
+
+    float viewDepth(vec2 uv) {
+      float d = texture2D(tDepth, uv).x;
+      if (d >= 1.0) return cameraFar;
+      return -((cameraNear * cameraFar) / ((cameraFar - cameraNear) * d - cameraFar));
+    }
+
+    float circleOfConfusion(float z) {
+      return clamp((abs(z - focusDistance) - focusRange) / max(focusRange, 1e-4), 0.0, 1.0);
+    }
+
+    void main() {
+      float z = viewDepth(vUv);
+      float centre = circleOfConfusion(z) * maxBlur;
+      if (centre < 0.75) { gl_FragColor = texture2D(tDiffuse, vUv); return; }
+
+      const int TAPS = 28;
+      const float GOLDEN = 2.39996323;
+      vec4 sum = texture2D(tDiffuse, vUv);
+      float weight = 1.0;
+      for (int i = 0; i < TAPS; i++) {
+        float fi = float(i) + 0.5;
+        float radius = sqrt(fi / float(TAPS)) * centre;
+        float angle = fi * GOLDEN;
+        vec2 uv = vUv + vec2(cos(angle), sin(angle)) * radius / resolution;
+        float sz = viewDepth(uv);
+        float sc = circleOfConfusion(sz) * maxBlur;
+        float w = (sz > z || sc >= radius) ? 1.0 : 0.0;
+        sum += texture2D(tDiffuse, uv) * w;
+        weight += w;
+      }
+      gl_FragColor = sum / weight;
+    }`
+});
+dofPass.enabled = false;
+composer.addPass(dofPass);
+
+function ensureDofDepthTarget(width, height) {
+  if (dofDepthTarget && dofDepthTarget.width === width && dofDepthTarget.height === height) return;
+  if (dofDepthTarget) {
+    dofDepthTarget.depthTexture.dispose();
+    dofDepthTarget.dispose();
+  }
+  dofDepthTarget = new THREE.WebGLRenderTarget(width, height, {
+    minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter,
+    format: THREE.RGBAFormat, type: THREE.UnsignedByteType,
+    depthBuffer: true, stencilBuffer: false
+  });
+  dofDepthTarget.depthTexture = new THREE.DepthTexture(width, height);
+  dofDepthTarget.depthTexture.format = THREE.DepthFormat;
+  dofDepthTarget.depthTexture.type = THREE.UnsignedIntType;
+}
+
+function renderDepthOfField() {
+  const canvas = renderer.domElement;
+  const width = Math.max(2, Math.round(canvas.width * DOF_DEPTH_SCALE));
+  const height = Math.max(2, Math.round(canvas.height * DOF_DEPTH_SCALE));
+  ensureDofDepthTarget(width, height);
+
+  const previous = renderer.getRenderTarget();
+  withSolidDepth(() => {
+    renderer.setRenderTarget(dofDepthTarget);
+    renderer.render(scene, camera);
+  });
+  renderer.setRenderTarget(previous);
+
+  const distance = camera.position.distanceTo(controls.target);
+  const uniforms = dofPass.uniforms;
+  uniforms.tDepth.value = dofDepthTarget.depthTexture;
+  uniforms.cameraNear.value = camera.near;
+  uniforms.cameraFar.value = camera.far;
+  uniforms.focusDistance.value = distance * formula.dofFocus;
+  uniforms.focusRange.value = Math.max(0.01, sceneRadius() * formula.dofRange);
+  uniforms.maxBlur.value = formula.dofBlur * renderer.getPixelRatio();
+  uniforms.resolution.value.set(canvas.width, canvas.height);
+}
+
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(innerWidth, innerHeight),
+  formula.bloomStrength,
+  formula.bloomRadius,
+  formula.bloomThreshold
+);
+composer.addPass(bloomPass);
+composer.addPass(new OutputPass());
+
+const BLOOM_REFERENCE = 1700;
+const bloomBuffer = new THREE.Vector2();
+
+function applyBloomResolution() {
+  renderer.getDrawingBufferSize(bloomBuffer);
+  const aspect = bloomBuffer.x / Math.max(1, bloomBuffer.y);
+  const base = BLOOM_REFERENCE / Math.max(0.05, formula.bloomSpread);
+  const height = aspect >= 1 ? base : base / aspect;
+  const width = height * aspect;
+  bloomPass.setSize(Math.max(8, Math.round(width)), Math.max(8, Math.round(height)));
+  requestRender();
+}
+
+let generated = new THREE.Group();
+scene.add(generated);
+
+const TAU = Math.PI * 2;
+const SQRT2 = Math.SQRT2;
+const R0 = 1 + SQRT2;
+let circleCache = new Map();
+let circleCacheShapeKey = '';
+const controlMap = new Map();
+let poleLockState = null;
+
+function clearPoleLock() {
+  controls.enableRotate = true;
+  poleLockState = null;
+}
+
+function lockCurrentPole(name) {
+  poleLockState = name;
+}
+
+function applyCameraView(name) {
+  const d = formula.cameraDistance;
+  controls.target.set(0, 0, 0);
+  clearPoleLock();
+  camera.up.set(0, 1, 0);
+  if (name === 'top') {
+    camera.position.set(0, 0, d);
+  } else if (name === 'bottom') {
+    camera.position.set(0, 0, -d);
+  } else if (name === 'iso') {
+    camera.position.set(0.78 * d, 0.58 * d, 0.66 * d);
+  } else {
+    camera.position.set(d, 0, 0);
+    name = 'side';
+  }
+  formula.cameraView = name;
+  const camSelect = document.getElementById('cameraView');
+  if (camSelect) {
+    camSelect.value = name;
+    const output = camSelect.nextElementSibling;
+    if (output) output.textContent = name;
+  }
+  camera.lookAt(0, 0, 0);
+  controls.update();
+  if (formula.lockAtTopBottom && (name === 'top' || name === 'bottom')) lockCurrentPole(name);
+  requestRender();
+}
+
+function maybeSnapAndLockPole() {
+  if (!formula.lockAtTopBottom) {
+    if (poleLockState) clearPoleLock();
+    return;
+  }
+  if (poleLockState) return;
+  const eps = Math.max(1e-6, formula.topBottomSnapEpsilon);
+  const direction = camera.position.clone().sub(controls.target).normalize();
+  const topAngle = Math.acos(THREE.MathUtils.clamp(direction.z, -1, 1));
+  const bottomAngle = Math.acos(THREE.MathUtils.clamp(-direction.z, -1, 1));
+  if (topAngle <= eps) applyCameraView('top');
+  else if (bottomAngle <= eps) applyCameraView('bottom');
+}
+
+let holeCeiling = 0.9;
+const holeH     = () => Math.min(holeCeiling, Math.max(0.005, formula.holeRatio));
+const shapeC    = () => { const h = holeH(); return (1 + h) / (1 - h); };
+const shapeGeom = () => R0 * (shapeC() - 1);
+const shapeK    = () => { const h = holeH(); return 2 * Math.sqrt(h) / (1 - h); };
+const ringR     = () => R0 * (1 + holeH()) / 2;
+const radialA   = () => R0 * (1 - holeH()) / 2;
+const rawAxialA = () => radialA() * shapeK();
+const axialA    = () => Math.max(0.01, formula.profile);
+const childAxialA = () => Math.max(0.01, rawAxialA() * formula.childHeight);
+
+function P(u, v, out = new THREE.Vector3()) {
+  const s = shapeGeom() / (shapeC() - Math.sin(v));
+  return out.set(Math.cos(u) * s, Math.sin(u) * s, Math.cos(v) * s);
+}
+
+function Pu(u, v, out = new THREE.Vector3()) {
+  const D = shapeC() - Math.sin(v);
+  return out.set(-Math.sin(u) / D, Math.cos(u) / D, 0);
+}
+
+function Pv(u, v, out = new THREE.Vector3()) {
+  const C = shapeC();
+  const D = C - Math.sin(v);
+  const D2 = D * D;
+  const cv = Math.cos(v);
+  return out.set(
+    Math.cos(u) * cv / D2,
+    Math.sin(u) * cv / D2,
+    (1 - C * Math.sin(v)) / D2
+  );
+}
+
+function phaseAtDepth(depth) {
+  return { plus: depth * formula.delta, minus: -depth * formula.delta };
+}
+
+function hexToColor(hex) {
+  return new THREE.Color(hex);
+}
+
+function depthAdjustedColor(baseHex, depth, satLoss, lightLoss, hueShift = 0) {
+  const c = hexToColor(baseHex);
+  const hsl = { h: 0, s: 0, l: 0 };
+  c.getHSL(hsl);
+  hsl.h = (hsl.h + hueShift * depth + 1) % 1;
+  hsl.s = Math.max(0, Math.min(1, hsl.s - satLoss * depth));
+  hsl.l = Math.max(0.07, Math.min(0.96, hsl.l - lightLoss * depth));
+  return new THREE.Color().setHSL(hsl.h, hsl.s, hsl.l);
+}
+
+function fiberColor(chirality, depth) {
+  return depthAdjustedColor(chirality > 0 ? formula.plusColor : formula.minusColor, depth, formula.depthSatFade, formula.depthFade, chirality > 0 ? -0.0025 : 0.0025);
+}
+
+function torusColor(depth) {
+  return depthAdjustedColor(formula.torusColor, depth, formula.depthSatFade * 0.7, formula.depthFade * 0.85, -0.0015);
+}
+
+function disposeObject(root) {
+  root.traverse(obj => {
+    if (obj.geometry) obj.geometry.dispose();
+    if (obj.material) {
+      if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
+      else obj.material.dispose();
+    }
+  });
+}
+
+function requestedNodes() {
+  const b = BigInt(2 * formula.m * formula.m);
+  let total = 1n;
+  let power = 1n;
+  for (let d = 1; d <= formula.levels; d++) {
+    power *= b;
+    total += power;
+  }
+  return total;
+}
+
+const SHEEN_DIR = new THREE.Vector3(0.52, 0.66, 0.54).normalize();
+
+const bridgeUniform = { value: 0 };
+let profileZUniform = { value: 1 };
+const childProfileZUniform = { value: 1 };
+let childAxialUniform = { value: 1 };
+let bridgeRadialUniform = { value: 1 };
+let bridgeAxialUniform = { value: 1 };
+let carrierBridgeRadialUniform = { value: 1 / R0 };
+let carrierBridgeAxialUniform = { value: 1 / R0 };
+let childCarrierBridgeAxialUniform = { value: 1 / R0 };
+const carrierProfileZUniform = { value: 1 };
+let carrierDeformation = {
+  bridge: bridgeUniform,
+  bridgeRadial: carrierBridgeRadialUniform,
+  bridgeAxial: carrierBridgeAxialUniform,
+  profileZ: carrierProfileZUniform
+};
+let childCarrierDeformation = {
+  bridge: bridgeUniform,
+  bridgeRadial: carrierBridgeRadialUniform,
+  bridgeAxial: childCarrierBridgeAxialUniform,
+  profileZ: carrierProfileZUniform
+};
+
+function lodMix(full, lean, depth) {
+  if (depth <= 0) return full;
+  const t = Math.min(1, formula.lodStrength) * Math.min(1, depth / Math.max(1, formula.levels));
+  return Math.max(4, Math.round(full + (lean - full) * t));
+}
+const torusRadialAt  = d => lodMix(16, 6, d);
+const torusTubularAt = d => lodMix(88, 16, d);
+const fiberSamplesAt = d => lodMix(formula.samples, Math.max(8, Math.round(formula.samples / 6)), d);
+
+const FRAME_WORK_BUDGET = 25_000_000;
+let workloadSafetyLimited = false;
+let treeBudgetShare = 1;
+
+function nodeWorkAtDepth(depth) {
+  let work = 0;
+  if (!formula.hideAllFibers && !(depth === 0 && formula.hideRootFibers)) {
+    work += 2 * formula.m * fiberSamplesAt(depth) * 2;
+  }
+  if (depth === 0 ? formula.showRootTorus : formula.showTori) {
+    work += torusRadialAt(depth) * torusTubularAt(depth) * 2;
+  }
+  if (formula.showParticles) {
+    const falloff = Math.pow(formula.particleDepthFalloff, depth);
+    if (depth === 0 || falloff >= 0.02) {
+      const trains = Math.max(1, Math.round(formula.particleTrains * falloff));
+      const tail = Math.max(1, Math.round(formula.particleTail * falloff));
+      work += 2 * formula.m * trains * tail;
+    }
+  }
+  return Math.max(1, work);
+}
+
+function safeBreadthFirstCapacity() {
+  const branch = BigInt(2 * formula.m * formula.m);
+  let levelNodes = 1n;
+  let remainingNodes = Math.max(1, Math.floor(formula.nodeBudget));
+  let remainingWork = FRAME_WORK_BUDGET * treeBudgetShare;
+  let total = 0;
+  for (let depth = 0; depth <= formula.levels && remainingNodes > 0; depth++) {
+    const available = levelNodes > BigInt(remainingNodes) ? remainingNodes : Number(levelNodes);
+    const count = Math.min(available, Math.floor(remainingWork / nodeWorkAtDepth(depth)));
+    if (count <= 0) break;
+    total += count;
+    remainingNodes -= count;
+    remainingWork -= count * nodeWorkAtDepth(depth);
+    if (count < available) break;
+    levelNodes *= branch;
+  }
+  return Math.max(1, total);
+}
+
+let siteTables = [];
+let supportAt = [];
+let evenQuotaCache = [];
+let nodePosScale = null;
+let nodeQuat = null;
+let nodeDepth = null;
+let nodeLight = null;
+let nodePlusColor = null;
+let nodeMinusColor = null;
+let nodeCount = 0;
+let nodeCapacity = 0;
+let depthRanges = [];
+let structureAlpha = 0;
+let animClock = 0;
+let lastFrame = performance.now() / 1000;
+let structureDirty = true;
+let structureBoundsDirty = true;
+
+function markStructureDirty(boundsMayChange = false) {
+  structureDirty = true;
+  if (boundsMayChange) structureBoundsDirty = true;
+}
+
+function circleFromFiber(pointAt, chirality, index) {
+  const p0 = pointAt(0, new THREE.Vector3());
+  const p1 = pointAt(TAU / 3, new THREE.Vector3());
+  const p2 = pointAt(2 * TAU / 3, new THREE.Vector3());
+  const a = p1.clone().sub(p0);
+  const b = p2.clone().sub(p0);
+  const cross = new THREE.Vector3().crossVectors(a, b);
+  const crossSq = cross.lengthSq();
+  if (crossSq < 1e-24) throw new Error('Degenerate projected Hopf circle.');
+  const term1 = new THREE.Vector3().crossVectors(b, cross).multiplyScalar(a.lengthSq());
+  const term2 = new THREE.Vector3().crossVectors(cross, a).multiplyScalar(b.lengthSq());
+  const center = p0.clone().add(term1.add(term2).multiplyScalar(1 / (2 * crossSq)));
+  return { center, normal: cross.normalize(), radius: center.distanceTo(p0), chirality, index };
+}
+
+function fiberCircles(depth) {
+  const cached = circleCache.get(depth);
+  if (cached) return cached;
+  const ph = phaseAtDepth(depth);
+  const circles = [];
+  for (let k = 0; k < formula.m; k++) {
+    const a = TAU * k / formula.m + ph.plus;
+    circles.push(circleFromFiber((t, out) => P(t + a, t, out), +1, k));
+  }
+  for (let l = 0; l < formula.m; l++) {
+    const b = TAU * l / formula.m + ph.minus;
+    circles.push(circleFromFiber((t, out) => P(b - t, t, out), -1, l));
+  }
+  circleCache.set(depth, circles);
+  return circles;
+}
+
+function allocateNodes() {
+  const requested = requestedNodes();
+  const ceiling = BigInt(formula.nodeBudget);
+  const requestedCapacity = Number(requested < ceiling ? requested : ceiling);
+  nodeCapacity = Math.min(requestedCapacity, safeBreadthFirstCapacity());
+  workloadSafetyLimited = nodeCapacity < requestedCapacity;
+  nodePosScale = new Float32Array(nodeCapacity * 4);
+  nodeQuat = new Float32Array(nodeCapacity * 4);
+  nodeDepth = new Float32Array(nodeCapacity);
+  nodeLight = new Float32Array(nodeCapacity * 3);
+  nodePlusColor = new Float32Array(nodeCapacity * 3);
+  nodeMinusColor = new Float32Array(nodeCapacity * 3);
+  nodeCount = 0;
+}
+
+function bakeNodeColors() {
+  const plus = [], minus = [];
+  for (let d = 0; d <= formula.levels; d++) {
+    plus.push(fiberColor(+1, d));
+    minus.push(fiberColor(-1, d));
+  }
+  for (let i = 0; i < nodeCount; i++) {
+    const d = Math.min(nodeDepth[i], formula.levels);
+    const p = plus[d], mn = minus[d];
+    nodePlusColor[i * 3] = p.r; nodePlusColor[i * 3 + 1] = p.g; nodePlusColor[i * 3 + 2] = p.b;
+    nodeMinusColor[i * 3] = mn.r; nodeMinusColor[i * 3 + 1] = mn.g; nodeMinusColor[i * 3 + 2] = mn.b;
+  }
+}
+
+function circleDistance(px, py, pz, cx, cy, cz, nx, ny, nz, r) {
+  const qx = px - cx, qy = py - cy, qz = pz - cz;
+  const axial = qx * nx + qy * ny + qz * nz;
+  const rx = qx - nx * axial, ry = qy - ny * axial, rz = qz - nz * axial;
+  const dp = Math.sqrt(rx * rx + ry * ry + rz * rz) - r;
+  return Math.sqrt(dp * dp + axial * axial);
+}
+
+let rotatedCircleData = [];
+
+function rotatedCircles(depth, alpha) {
+  let entry = rotatedCircleData[depth];
+  const circles = fiberCircles(depth);
+  const n = circles.length;
+  if (!entry || entry.cx.length !== n) {
+    entry = rotatedCircleData[depth] = {
+      cx: new Float64Array(n), cy: new Float64Array(n), cz: new Float64Array(n),
+      nx: new Float64Array(n), ny: new Float64Array(n), nz: new Float64Array(n),
+      r: new Float64Array(n)
+    };
+  }
+  for (let i = 0; i < n; i++) {
+    const c = circles[i];
+    const s = c.chirality > 0 ? alpha : -alpha;
+    const cs = Math.cos(s), sn = Math.sin(s);
+    entry.cx[i] = c.center.x * cs - c.center.y * sn;
+    entry.cy[i] = c.center.x * sn + c.center.y * cs;
+    entry.cz[i] = c.center.z;
+    entry.nx[i] = c.normal.x * cs - c.normal.y * sn;
+    entry.ny[i] = c.normal.x * sn + c.normal.y * cs;
+    entry.nz[i] = c.normal.z;
+    entry.r[i] = c.radius;
+  }
+  return entry;
+}
+
+const siteFrameE1 = new THREE.Vector3();
+const siteFrameDv = new THREE.Vector3();
+const siteFrameN = new THREE.Vector3();
+const siteFrameE2 = new THREE.Vector3();
+const siteFrameMat = new THREE.Matrix4();
+const siteFrameQuat = new THREE.Quaternion();
+const sitePoint = new THREE.Vector3();
+const siteGapPoint = new THREE.Vector3();
+
+const _dfA = new THREE.Vector3(), _dfB = new THREE.Vector3(), _dfC = new THREE.Vector3();
+const profileScaleAtDepth = depth => depth === 0 ? heightScaleZ() : formula.childHeight;
+const axialAtDepth = depth => depth === 0 ? axialA() : childAxialA();
+const deformActive = depth => Math.abs(profileScaleAtDepth(depth) - 1) > 1e-6 || formula.bridge > 0;
+
+function deformVec(x, y, z, out, depth = 0) {
+  z *= profileScaleAtDepth(depth);
+  const lam = Math.max(0, formula.bridge);
+  if (lam > 0) {
+    const r = Math.hypot(x, y);
+    if (r > 1e-5) {
+      const zn = z / Math.max(1e-4, axialAtDepth(depth));
+      const t = 1 - Math.sqrt(Math.max(1 - zn * zn, 0.02));
+      const k = Math.max(0.02, r - lam * radialA() * t) / r;
+      x *= k; y *= k;
+    }
+  }
+  return out.set(x, y, z);
+}
+
+function deformStretch(p, e1, e2, n, depth) {
+  const h = 1e-3;
+  let worst = Infinity;
+  for (const axis of [e1, e2, n]) {
+    deformVec(p.x + axis.x * h, p.y + axis.y * h, p.z + axis.z * h, _dfA, depth);
+    deformVec(p.x - axis.x * h, p.y - axis.y * h, p.z - axis.z * h, _dfB, depth);
+    const d = _dfA.distanceTo(_dfB) / (2 * h);
+    if (d < worst) worst = d;
+  }
+  return Math.max(1e-3, worst);
+}
+
+const spreadP0 = new THREE.Vector3(), spreadP1 = new THREE.Vector3();
+const spreadP2 = new THREE.Vector3(), spreadP3 = new THREE.Vector3();
+
+function deformedAreaElement(v, torusDepth) {
+  const h = 1e-4;
+  P(-h, v, spreadP0); deformVec(spreadP0.x, spreadP0.y, spreadP0.z, spreadP0, torusDepth);
+  P( h, v, spreadP1); deformVec(spreadP1.x, spreadP1.y, spreadP1.z, spreadP1, torusDepth);
+  P(0, v - h, spreadP2); deformVec(spreadP2.x, spreadP2.y, spreadP2.z, spreadP2, torusDepth);
+  P(0, v + h, spreadP3); deformVec(spreadP3.x, spreadP3.y, spreadP3.z, spreadP3, torusDepth);
+  const dux = (spreadP1.x - spreadP0.x) / (2 * h);
+  const duy = (spreadP1.y - spreadP0.y) / (2 * h);
+  const duz = (spreadP1.z - spreadP0.z) / (2 * h);
+  const dvx = (spreadP3.x - spreadP2.x) / (2 * h);
+  const dvy = (spreadP3.y - spreadP2.y) / (2 * h);
+  const dvz = (spreadP3.z - spreadP2.z) / (2 * h);
+  return Math.hypot(duy * dvz - duz * dvy, duz * dvx - dux * dvz, dux * dvy - duy * dvx);
+}
+
+function adaptiveArea(a, b, fa, fm, fb, whole, tolerance, iterations, torusDepth) {
+  const mid = 0.5 * (a + b);
+  const leftMid = 0.5 * (a + mid), rightMid = 0.5 * (mid + b);
+  const fl = deformedAreaElement(leftMid, torusDepth), fr = deformedAreaElement(rightMid, torusDepth);
+  const left = (mid - a) * (fa + 4 * fl + fm) / 6;
+  const right = (b - mid) * (fm + 4 * fr + fb) / 6;
+  const delta = left + right - whole;
+  if (iterations <= 0 || Math.abs(delta) <= 15 * tolerance) return left + right + delta / 15;
+  return adaptiveArea(a, mid, fa, fl, fm, left, tolerance * 0.5, iterations - 1, torusDepth) +
+         adaptiveArea(mid, b, fm, fr, fb, right, tolerance * 0.5, iterations - 1, torusDepth);
+}
+
+function ringAreaWeight(v, torusDepth) {
+  const halfWidth = Math.PI / (2 * formula.m);
+  const a = v - halfWidth, b = v + halfWidth, mid = v;
+  const fa = deformedAreaElement(a, torusDepth), fm = deformedAreaElement(mid, torusDepth), fb = deformedAreaElement(b, torusDepth);
+  const whole = (b - a) * (fa + 4 * fm + fb) / 6;
+  return adaptiveArea(a, b, fa, fm, fb, whole, Math.max(1e-9, Math.abs(whole) * 1e-6), 12, torusDepth);
+}
+
+function buildRingQuotas(depth) {
+  const m = formula.m, rings = 2 * m;
+  const cached = evenQuotaCache[depth];
+  if (cached && cached.length === rings) return cached;
+
+  const quotas = new Uint32Array(rings);
+  if (!formula.evenNodes) {
+    quotas.fill(m);
+    evenQuotaCache[depth] = quotas;
+    return quotas;
+  }
+
+  const dd = depth * formula.delta;
+  const weights = new Float64Array(rings);
+  const fractions = new Float64Array(rings);
+  let maxWeight = 0;
+  for (let j = 0; j < rings; j++) {
+    weights[j] = ringAreaWeight(Math.PI * j / m - dd, depth);
+    maxWeight = Math.max(maxWeight, weights[j]);
+  }
+
+  let desiredTotal = 0, allocated = 0;
+  for (let j = 0; j < rings; j++) {
+    const desired = maxWeight > 0 ? m * weights[j] / maxWeight : m;
+    quotas[j] = Math.floor(desired);
+    fractions[j] = desired - quotas[j];
+    desiredTotal += desired;
+    allocated += quotas[j];
+  }
+
+  const target = Math.max(1, Math.min(2 * m * m, Math.round(desiredTotal)));
+  const order = Array.from({ length:rings }, (_, j) => j).sort((a, b) =>
+    fractions[b] - fractions[a] || ((a * (rings - 1)) % rings) - ((b * (rings - 1)) % rings)
+  );
+  for (let i = 0; allocated < target; i++, allocated++) quotas[order[i]]++;
+
+  evenQuotaCache[depth] = quotas;
+  return quotas;
+}
+
+function keepRingAzimuth(k, ring, depth, m, quota) {
+  if (quota <= 0) return 0;
+  if (quota >= m) return 1;
+  const shifted = (k + (2 * ring + depth) % m) % m;
+  return Math.floor((shifted + 1) * quota / m) > Math.floor(shifted * quota / m) ? 1 : 0;
+}
+
+function buildSiteTable(depth, alpha) {
+  const m = formula.m;
+  const branch = 2 * m * m;
+  let table = siteTables[depth];
+  if (!table || table.gap.length !== branch) {
+    table = siteTables[depth] = {
+      pos: new Float32Array(branch * 3),
+      quat: new Float32Array(branch * 4),
+      gap: new Float32Array(branch),
+      keep: new Uint8Array(branch),
+      count: branch
+    };
+  }
+  const ringQuotas = buildRingQuotas(depth);
+  const ph = phaseAtDepth(depth);
+  const circles = rotatedCircles(depth, alpha);
+  const nCircles = circles.r.length;
+
+  let idx = 0;
+  let support = R0;
+  for (let k = 0; k < m; k++) {
+    const a = TAU * (k + 0.5) / m + ph.plus;
+    for (let l = 0; l < m; l++) {
+      const b = TAU * (l + 0.5) / m + ph.minus;
+      for (let q = 0; q < 2; q++) {
+        const u = 0.5 * (a + b) + q * Math.PI;
+        const v = 0.5 * (b - a) + q * Math.PI - alpha;
+
+        let keep = 1;
+        if (formula.evenNodes) {
+          const rings = 2 * m;
+          const ring = ((l - k + q * m) % rings + rings) % rings;
+          keep = keepRingAzimuth(k, ring, depth, m, ringQuotas[ring]);
+        }
+        table.keep[idx] = keep;
+        if (!keep) {
+          table.gap[idx] = 0;
+          idx++;
+          continue;
+        }
+
+        P(u, v, sitePoint);
+        siteGapPoint.copy(sitePoint);
+
+        Pu(u, v, siteFrameE1).normalize();
+        Pv(u, v, siteFrameDv);
+        siteFrameN.crossVectors(siteFrameE1, siteFrameDv).normalize();
+        siteFrameE2.crossVectors(siteFrameN, siteFrameE1).normalize();
+
+        let stretch = 1;
+        if (deformActive(depth)) {
+          stretch = deformStretch(sitePoint, siteFrameE1, siteFrameE2, siteFrameN, depth);
+          const h = 1e-3;
+          deformVec(sitePoint.x + siteFrameE1.x * h, sitePoint.y + siteFrameE1.y * h, sitePoint.z + siteFrameE1.z * h, _dfA, depth);
+          deformVec(sitePoint.x - siteFrameE1.x * h, sitePoint.y - siteFrameE1.y * h, sitePoint.z - siteFrameE1.z * h, _dfB, depth);
+          siteFrameE1.subVectors(_dfA, _dfB).normalize();
+          deformVec(sitePoint.x + siteFrameE2.x * h, sitePoint.y + siteFrameE2.y * h, sitePoint.z + siteFrameE2.z * h, _dfA, depth);
+          deformVec(sitePoint.x - siteFrameE2.x * h, sitePoint.y - siteFrameE2.y * h, sitePoint.z - siteFrameE2.z * h, _dfB, depth);
+          _dfC.subVectors(_dfA, _dfB);
+          siteFrameN.crossVectors(siteFrameE1, _dfC).normalize();
+          siteFrameE2.crossVectors(siteFrameN, siteFrameE1).normalize();
+          deformVec(sitePoint.x, sitePoint.y, sitePoint.z, sitePoint, depth);
+        }
+
+        table.pos[idx * 3] = sitePoint.x;
+        table.pos[idx * 3 + 1] = sitePoint.y;
+        table.pos[idx * 3 + 2] = sitePoint.z;
+        siteFrameMat.makeBasis(siteFrameE1, siteFrameE2, siteFrameN);
+        siteFrameQuat.setFromRotationMatrix(siteFrameMat);
+        table.quat[idx * 4] = siteFrameQuat.x;
+        table.quat[idx * 4 + 1] = siteFrameQuat.y;
+        table.quat[idx * 4 + 2] = siteFrameQuat.z;
+        table.quat[idx * 4 + 3] = siteFrameQuat.w;
+
+        let best = Infinity;
+        for (let i = 0; i < nCircles; i++) {
+          const d = circleDistance(
+            siteGapPoint.x, siteGapPoint.y, siteGapPoint.z,
+            circles.cx[i], circles.cy[i], circles.cz[i],
+            circles.nx[i], circles.ny[i], circles.nz[i],
+            circles.r[i]
+          );
+          if (d < best) best = d;
+        }
+        const deformedGap = best * stretch;
+        table.gap[idx] = deformedGap;
+        const reach = sitePoint.length() + formula.aFill * deformedGap;
+        if (reach > support) support = reach;
+        idx++;
+      }
+    }
+  }
+  supportAt[depth] = support;
+  return table;
+}
+
+let treeRootScale = 1;
+let treeRootTurn = 0;
+
+function stepStructure(alpha) {
+  const shapeKey = `${formula.m}|${formula.delta}|${shapeC().toPrecision(12)}`;
+  if (shapeKey !== circleCacheShapeKey) {
+    circleCacheShapeKey = shapeKey;
+    circleCache.clear();
+    rotatedCircleData.length = 0;
+  }
+  structureAlpha = alpha;
+  const m = formula.m;
+  const levels = formula.levels;
+  const branch = 2 * m * m;
+
+  for (let d = 0; d <= levels; d++) buildSiteTable(d, alpha);
+
+  nodePosScale[0] = 0; nodePosScale[1] = 0; nodePosScale[2] = 0; nodePosScale[3] = treeRootScale;
+  nodeQuat[0] = 0; nodeQuat[1] = 0; nodeQuat[2] = Math.sin(treeRootTurn / 2); nodeQuat[3] = Math.cos(treeRootTurn / 2);
+  nodeDepth[0] = 0;
+  let count = 1;
+
+  depthRanges = [[0, 1]];
+  let levelStart = 0, levelEnd = 1;
+
+  for (let level = 0; level < levels; level++) {
+    const nextStart = count;
+    const remainingAfterChild = levels - (level + 1);
+
+    for (let p = levelStart; p < levelEnd && count < nodeCapacity; p++) {
+      const pd = nodeDepth[p] | 0;
+      const table = siteTables[pd];
+      const childSupport = remainingAfterChild <= 0 ? R0 : supportAt[pd + 1];
+
+      const px = nodePosScale[p * 4], py = nodePosScale[p * 4 + 1], pz = nodePosScale[p * 4 + 2];
+      const ps = nodePosScale[p * 4 + 3];
+      const qx = nodeQuat[p * 4], qy = nodeQuat[p * 4 + 1], qz = nodeQuat[p * 4 + 2], qw = nodeQuat[p * 4 + 3];
+
+      for (let s = 0; s < branch; s++) {
+        if (count >= nodeCapacity) break;
+        if (!table.keep[s]) continue;
+        const gap = table.gap[s];
+        if (!(gap > 1e-12)) continue;
+
+        const lx = table.pos[s * 3] * ps, ly = table.pos[s * 3 + 1] * ps, lz = table.pos[s * 3 + 2] * ps;
+        const tx = 2 * (qy * lz - qz * ly);
+        const ty = 2 * (qz * lx - qx * lz);
+        const tz = 2 * (qx * ly - qy * lx);
+        const wx = lx + qw * tx + (qy * tz - qz * ty);
+        const wy = ly + qw * ty + (qz * tx - qx * tz);
+        const wz = lz + qw * tz + (qx * ty - qy * tx);
+
+        const o = count * 4;
+        nodePosScale[o] = px + wx;
+        nodePosScale[o + 1] = py + wy;
+        nodePosScale[o + 2] = pz + wz;
+        nodePosScale[o + 3] = ps * (formula.aFill * gap / childSupport);
+
+        const sx = table.quat[s * 4], sy = table.quat[s * 4 + 1], sz = table.quat[s * 4 + 2], sw = table.quat[s * 4 + 3];
+        nodeQuat[o] = qw * sx + qx * sw + qy * sz - qz * sy;
+        nodeQuat[o + 1] = qw * sy - qx * sz + qy * sw + qz * sx;
+        nodeQuat[o + 2] = qw * sz + qx * sy - qy * sx + qz * sw;
+        nodeQuat[o + 3] = qw * sw - qx * sx - qy * sy - qz * sz;
+
+        nodeDepth[count] = pd + 1;
+        count++;
+      }
+    }
+
+    depthRanges.push([nextStart, count]);
+    levelStart = nextStart;
+    levelEnd = count;
+    if (levelEnd <= levelStart) break;
+  }
+
+  nodeCount = count;
+}
+
+const GLSL_BRIDGE = `
+  uniform float uBridge, uBridgeRadial, uBridgeAxial;
+  float bridgeT(float z) {
+    float u = z / uBridgeAxial;
+    return 1.0 - sqrt(max(1.0 - u * u, 0.02));
+  }
+  uniform float uProfileZ, uChildProfileZ, uChildAxial, uDeformOn;
+  vec3 deformPoint(vec3 p) {
+    p.z *= uProfileZ;
+    if (uBridge > 0.0) {
+      float r = length(p.xy);
+      if (r > 1e-5) {
+        p.xy *= max(0.02, r - uBridge * uBridgeRadial * bridgeT(p.z)) / r;
+      }
+    }
+    return p;
+  }
+  vec3 deformPointAtDepth(vec3 p, float depth) {
+    float profileZ = depth < 0.5 ? uProfileZ : uChildProfileZ;
+    float bridgeAxial = depth < 0.5 ? uBridgeAxial : uChildAxial;
+    p.z *= profileZ;
+    if (uBridge > 0.0) {
+      float r = length(p.xy);
+      if (r > 1e-5) {
+        float u = p.z / bridgeAxial;
+        float t = 1.0 - sqrt(max(1.0 - u * u, 0.02));
+        p.xy *= max(0.02, r - uBridge * uBridgeRadial * t) / r;
+      }
+    }
+    return p;
+  }
+  vec3 bridgeNormal(vec3 p, vec3 n) {
+    p.z *= uProfileZ;
+    n.z /= max(uProfileZ, 1e-5);
+    if (uBridge <= 0.0) return n;
+    float r = length(p.xy);
+    if (r < 1e-5) return n;
+    float u = p.z / uBridgeAxial;
+    float root = sqrt(max(1.0 - u * u, 0.02));
+    float D = uBridge * uBridgeRadial * (1.0 - root);
+    float dDdz = (1.0 - u * u > 0.02) ? uBridge * uBridgeRadial * (u / uBridgeAxial) / root : 0.0;
+    float s = 1.0 - D / r;
+    float k = D / (r * r * r);
+    float a = s + p.x * p.x * k, b = p.x * p.y * k, c = -p.x * dDdz / r;
+    float d = p.y * p.x * k, e = s + p.y * p.y * k, f = -p.y * dDdz / r;
+    return vec3(
+      e * n.x - d * n.y,
+      -b * n.x + a * n.y,
+      (b * f - c * e) * n.x + (c * d - a * f) * n.y + (a * e - b * d) * n.z
+    );
+  }
+  uniform float uC, uGeom;
+  vec3 torPoint(float u, float v) {
+    float D = uC - sin(v);
+    return uGeom * vec3(cos(u), sin(u), cos(v)) / D;
+  }
+`;
+
+const FIBER_VERT = `
+      attribute float aT, aF;
+      attribute vec4 iPosScale, iQuat;
+      attribute float iDepth;
+      attribute vec3 iPlus, iMinus, iLight;
+      uniform float uM, uDelta, uAlpha, uSheenStrength, uSheenSharpness;
+      uniform vec3 uSheenColor;
+      varying vec3 vColor;
+      void main() {
+        float chir = chirOf(aF, uM);
+        float u    = chir * aT + basePhase(aF, uM, iDepth, uDelta, uAlpha);
+        float v    = aT;
+
+        float su = sin(u), cu = cos(u), sv = sin(v), cv = cos(v);
+        float D  = uC - sv;
+        vec3 local = uGeom * vec3(cu, su, cv) / D;
+
+        vec3 T = normalize(chir * D * vec3(-su, cu, 0.0) + vec3(cu * cv, su * cv, 1.0 - uC * sv));
+
+        float sheen = uSheenStrength * pow(max(1.0 - abs(dot(T, iLight)), 0.0), uSheenSharpness);
+        vColor = mix(chir > 0.0 ? iPlus : iMinus, uSheenColor, sheen);
+
+        if (uDeformOn > 0.5) local = deformPointAtDepth(local, iDepth);
+        vec3 p = qrot(iQuat, local * iPosScale.w) + iPosScale.xyz;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+      }`;
+
+const FIBER_FRAG = `
+      uniform float uOpacity;
+      varying vec3 vColor;
+      void main() { gl_FragColor = vec4(vColor, uOpacity); }
+`;
+
+const GLSL_COMMON = GLSL_BRIDGE + `
+  #define TAU 6.283185307179586
+  #define SQRT2 1.4142135623730951
+
+  vec3 qrot(vec4 q, vec3 v) {
+    return v + 2.0 * cross(q.xyz, cross(q.xyz, v) + q.w * v);
+  }
+  vec3 qrotInv(vec4 q, vec3 v) {
+    return qrot(vec4(-q.xyz, q.w), v);
+  }
+
+`;
+
+const GLSL_FIBER_PHASE = `
+  float chirOf(float f, float m)  { return f < m ? 1.0 : -1.0; }
+  float indexOf(float f, float m) { return f < m ? f : f - m; }
+  float basePhase(float f, float m, float depth, float delta, float alpha) {
+    float chir = chirOf(f, m);
+    return TAU * indexOf(f, m) / m + chir * (depth * delta + alpha);
+  }
+`;
+
+let fiberMeshes = [];
+let fiberMaterial = null;
+
+function makeFiberMaterial(cValue, geomValue, deformation = {}) {
+  const opaque = formula.fiberOpacity >= 0.999;
+  const bridge = deformation.bridge || bridgeUniform;
+  const bridgeRadial = deformation.bridgeRadial || bridgeRadialUniform;
+  const bridgeAxial = deformation.bridgeAxial || bridgeAxialUniform;
+  const profileZ = deformation.profileZ || profileZUniform;
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uM: { value: formula.m },
+      uC: { value: cValue },
+      uGeom: { value: geomValue },
+      uDelta: { value: formula.delta },
+      uAlpha: { value: 0 },
+      uSheenColor: { value: new THREE.Color(formula.sheenColor) },
+      uSheenStrength: { value: formula.sheenStrength },
+      uSheenSharpness: { value: formula.sheenSharpness },
+      uOpacity: { value: formula.fiberOpacity },
+      uBridge: bridge,
+      uBridgeRadial: bridgeRadial,
+      uBridgeAxial: bridgeAxial,
+      uProfileZ: profileZ,
+      uChildProfileZ: childProfileZUniform,
+      uChildAxial: childAxialUniform,
+      uDeformOn: { value: 1 }
+    },
+    vertexShader: GLSL_COMMON + GLSL_FIBER_PHASE + FIBER_VERT,
+    fragmentShader: FIBER_FRAG,
+    transparent: !opaque,
+    depthWrite: true
+  });
+}
+
+function buildFiberMeshes() {
+  const m = formula.m;
+  const fibers = 2 * m;
+  const meshes = [];
+
+  const opaque = formula.fiberOpacity >= 0.999;
+  fiberMaterial = makeFiberMaterial(shapeC(), shapeGeom());
+  for (let d = 0; d <= formula.levels; d++) {
+    if (d === 0 && formula.hideRootFibers) continue;
+    const range = depthRanges[d];
+    if (!range) continue;
+    const [start, end] = range;
+    const instances = end - start;
+    if (instances <= 0) continue;
+
+    const samples = fiberSamplesAt(d);
+    const verts = fibers * samples * 2;
+    const aT = new Float32Array(verts);
+    const aF = new Float32Array(verts);
+    let w = 0;
+    for (let f = 0; f < fibers; f++) {
+      for (let i = 0; i < samples; i++) {
+        aT[w] = TAU * i / samples;       aF[w] = f; w++;
+        aT[w] = TAU * (i + 1) / samples; aF[w] = f; w++;
+      }
+    }
+
+    const geometry = new THREE.InstancedBufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(verts * 3), 3));
+    geometry.setAttribute('aT', new THREE.BufferAttribute(aT, 1));
+    geometry.setAttribute('aF', new THREE.BufferAttribute(aF, 1));
+    geometry.setAttribute('iPosScale', new THREE.InstancedBufferAttribute(nodePosScale.subarray(start * 4, end * 4), 4));
+    geometry.setAttribute('iQuat', new THREE.InstancedBufferAttribute(nodeQuat.subarray(start * 4, end * 4), 4));
+    geometry.setAttribute('iDepth', new THREE.InstancedBufferAttribute(nodeDepth.subarray(start, end), 1));
+    geometry.setAttribute('iPlus', new THREE.InstancedBufferAttribute(nodePlusColor.subarray(start * 3, end * 3), 3));
+    geometry.setAttribute('iMinus', new THREE.InstancedBufferAttribute(nodeMinusColor.subarray(start * 3, end * 3), 3));
+    geometry.setAttribute('iLight', new THREE.InstancedBufferAttribute(nodeLight.subarray(start * 3, end * 3), 3));
+    geometry.instanceCount = instances;
+    geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(), R0 * 1.35);
+
+    const mesh = new THREE.LineSegments(geometry, fiberMaterial);
+    mesh.frustumCulled = false;
+    mesh.renderOrder = 1;
+    meshes.push({ depth: d, mesh, geometry, samples, instances });
+  }
+  fiberMeshes = meshes;
+  return meshes;
+}
+
+let latticeMeshes = [];
+let latticeMaterials = [];
+
+function crossingTable(m) {
+  const n = 2 * m * m;
+  const u0 = new Float32Array(n), v0 = new Float32Array(n);
+  const X = new Float64Array(n * 4);
+  const idx = (k, l, q) => (k * m + l) * 2 + q;
+  for (let k = 0; k < m; k++) for (let l = 0; l < m; l++) for (let q = 0; q < 2; q++) {
+    const i = idx(k, l, q);
+    const u = Math.PI * (k + l) / m + q * Math.PI;
+    const v = Math.PI * (l - k) / m + q * Math.PI;
+    u0[i] = u; v0[i] = v;
+    X[i*4] = Math.cos(u) * Math.SQRT1_2; X[i*4+1] = Math.sin(u) * Math.SQRT1_2;
+    X[i*4+2] = Math.cos(v) * Math.SQRT1_2; X[i*4+3] = Math.sin(v) * Math.SQRT1_2;
+  }
+  const d4 = (i, j) => {
+    const a = X[i*4]-X[j*4], b = X[i*4+1]-X[j*4+1], c = X[i*4+2]-X[j*4+2], d = X[i*4+3]-X[j*4+3];
+    return Math.sqrt(a*a + b*b + c*c + d*d);
+  };
+  const pairs = [];
+  let best = Infinity;
+  for (let k = 0; k < m; k++) for (let l = 0; l < m; l++) for (let q = 0; q < 2; q++) {
+    const i = idx(k, l, q);
+    for (let dk = -1; dk <= 1; dk++) for (let dl = -1; dl <= 1; dl++) for (let qq = 0; qq < 2; qq++) {
+      const j = idx((k + dk + m) % m, (l + dl + m) % m, qq);
+      if (j <= i) continue;
+      const d = d4(i, j);
+      if (d < 1e-9) continue;
+      pairs.push([i, j, d]);
+      if (d < best) best = d;
+    }
+  }
+  const tol = best * 1e-6;
+  const seen = new Set(), edges = [];
+  for (const [i, j, d] of pairs) {
+    if (Math.abs(d - best) > tol) continue;
+    const key = i * n + j;
+    if (seen.has(key)) continue;
+    seen.add(key); edges.push(i, j);
+  }
+  return { n, u0, v0, edges: Uint32Array.from(edges), edgeLength4D: best };
+}
+
+const LATTICE_VERT = `
+  attribute float aU0, aV0;
+  attribute vec4 iPosScale, iQuat;
+  attribute float iDepth;
+  uniform float uDelta, uAlpha, uPointSize;
+  void main() {
+    float u = aU0;
+    float v = aV0 - iDepth * uDelta - uAlpha;
+    float D = uC - sin(v);
+    vec3 local = uGeom * vec3(cos(u), sin(u), cos(v)) / D;
+    if (uDeformOn > 0.5) local = deformPointAtDepth(local, iDepth);
+    vec3 p = qrot(iQuat, local * iPosScale.w) + iPosScale.xyz;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+    gl_PointSize = uPointSize;
+  }`;
+const LATTICE_FRAG = `
+  uniform vec3 uColor;
+  uniform float uOpacity;
+  uniform float uIsPoint;
+  void main() {
+    if (uIsPoint > 0.5 && length(gl_PointCoord - 0.5) > 0.5) discard;
+    gl_FragColor = vec4(uColor, uOpacity);
+  }`;
+
+function makeLatticeMaterial(isPoint) {
+  const mat = new THREE.ShaderMaterial({
+    uniforms: {
+      uC: { value: shapeC() },
+      uGeom: { value: shapeGeom() },
+      uDelta: { value: formula.delta },
+      uAlpha: { value: structureAlpha },
+      uColor: { value: new THREE.Color(formula.crossingColor) },
+      uOpacity: { value: formula.crossingOpacity },
+      uPointSize: { value: 7 * Math.min(window.devicePixelRatio || 1, 2) },
+      uIsPoint: { value: isPoint ? 1 : 0 },
+      uBridge: bridgeUniform,
+      uBridgeRadial: bridgeRadialUniform,
+      uBridgeAxial: bridgeAxialUniform,
+      uProfileZ: profileZUniform,
+      uChildProfileZ: childProfileZUniform,
+      uChildAxial: childAxialUniform,
+      uDeformOn: { value: 1 }
+    },
+    vertexShader: GLSL_COMMON + LATTICE_VERT,
+    fragmentShader: LATTICE_FRAG,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false
+  });
+  latticeMaterials.push(mat);
+  return mat;
+}
+
+function buildLatticeMeshes() {
+  latticeMeshes = [];
+  latticeMaterials = [];
+  latticeInfo = null;
+  if (!formula.crossingLattice || isE8Mode()) return latticeMeshes;
+  const table = crossingTable(formula.m);
+  const centres = formula.crossingMode === 'centres';
+  const uShift = centres ? Math.PI / formula.m : 0;
+  const u0 = uShift ? table.u0.map(u => u + uShift) : table.u0;
+  const lastDepth = formula.crossingRootOnly ? 0 : formula.levels;
+  const lineMat = makeLatticeMaterial(false);
+  const pointMat = formula.crossingPoints ? makeLatticeMaterial(true) : null;
+
+  const ev = table.edges.length;
+  const eu = new Float32Array(ev), evv = new Float32Array(ev);
+  for (let i = 0; i < ev; i++) { eu[i] = u0[table.edges[i]]; evv[i] = table.v0[table.edges[i]]; }
+
+  for (let d = 0; d <= lastDepth; d++) {
+    const range = depthRanges[d];
+    if (!range) continue;
+    const [start, end] = range;
+    const instances = end - start;
+    if (instances <= 0) continue;
+    const inst = g => {
+      g.setAttribute('iPosScale', new THREE.InstancedBufferAttribute(nodePosScale.subarray(start * 4, end * 4), 4));
+      g.setAttribute('iQuat', new THREE.InstancedBufferAttribute(nodeQuat.subarray(start * 4, end * 4), 4));
+      g.setAttribute('iDepth', new THREE.InstancedBufferAttribute(nodeDepth.subarray(start, end), 1));
+      g.instanceCount = instances;
+      g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), R0 * 1.35);
+    };
+
+    const ge = new THREE.InstancedBufferGeometry();
+    ge.setAttribute('position', new THREE.BufferAttribute(new Float32Array(ev * 3), 3));
+    ge.setAttribute('aU0', new THREE.BufferAttribute(eu, 1));
+    ge.setAttribute('aV0', new THREE.BufferAttribute(evv, 1));
+    inst(ge);
+    const lines = new THREE.LineSegments(ge, lineMat);
+    lines.frustumCulled = false; lines.renderOrder = 6;
+    latticeMeshes.push({ mesh: lines, geometry: ge });
+
+    if (pointMat) {
+      const gp = new THREE.InstancedBufferGeometry();
+      gp.setAttribute('position', new THREE.BufferAttribute(new Float32Array(table.n * 3), 3));
+      gp.setAttribute('aU0', new THREE.BufferAttribute(u0, 1));
+      gp.setAttribute('aV0', new THREE.BufferAttribute(table.v0, 1));
+      inst(gp);
+      const dots = new THREE.Points(gp, pointMat);
+      dots.frustumCulled = false; dots.renderOrder = 7;
+      latticeMeshes.push({ mesh: dots, geometry: gp });
+    }
+  }
+  latticeInfo = { vertices: table.n, edges: ev / 2, degree: (ev / table.n), edge4D: table.edgeLength4D, centres };
+  return latticeMeshes;
+}
+let latticeInfo = null;
+
+function latticeReadout() {
+  if (e8Polytope) return e8Readout();
+  if (!latticeInfo) return '';
+  const { vertices, edges, degree, edge4D, centres } = latticeInfo;
+  let name = 'uniform lattice on the Clifford torus';
+  if (formula.m === 2 && vertices === 8 && edges === 24 && Math.abs(edge4D - Math.SQRT2) < 1e-6)
+    name = '16-cell (regular 4-polytope)';
+  const C = shapeC();
+  const clifford = Math.abs(C - Math.SQRT2) / Math.SQRT2 < 0.005;
+  const what = centres ? 'torus-centre lattice' : 'crossing lattice';
+  const empty = centres && formula.levels < 1 ? '  (no child tori at L = 0: the centres are where they would sit)\n' : '';
+  const thinned = centres && formula.evenNodes ? '  (even node spread thins sites: some centres carry no torus)\n' : '';
+  return `${what} = ${vertices} vertices, ${edges} edges, degree ${degree}\n` + empty + thinned +
+         `  ${name}${clifford ? '' : ' - shape moved off the Clifford proportion'}\n` +
+         `  shadow cycle = ${(Math.PI / formula.m / Math.max(1e-4, formula.alphaSpeed)).toFixed(1)} s\n`;
+}
+
+let particleTiers = [];
+
+function buildParticleTier(depth, trains, tail) {
+  const m = formula.m;
+  const fibers = 2 * m;
+  const [start, end] = depthRanges[depth] || [0, 0];
+  const instances = end - start;
+  if (instances <= 0 || trains <= 0 || tail <= 0) return null;
+
+  const per = fibers * trains * tail;
+  const aF = new Float32Array(per);
+  const aPhase = new Float32Array(per);
+  const aSpd = new Float32Array(per);
+  const aSeed = new Float32Array(per);
+  const aSize = new Float32Array(per);
+  const aTail = new Float32Array(per);
+
+  let w = 0;
+  for (let f = 0; f < fibers; f++) {
+    const spd = -(0.45 + 0.35 * Math.random());
+    for (let tr = 0; tr < trains; tr++) {
+      const head = ((tr + 0.6 * Math.random()) / trains) * TAU;
+      for (let q = 0; q < tail; q++) {
+        aF[w] = f;
+        aPhase[w] = head + 0.022 * q;
+        aSpd[w] = spd;
+        aSeed[w] = Math.random();
+        aSize[w] = (1.05 - 0.03 * q) * (0.6 + 0.4 * Math.random());
+        aTail[w] = Math.pow(0.93, q);
+        w++;
+      }
+    }
+  }
+
+  const geometry = new THREE.InstancedBufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(per * 3), 3));
+  geometry.setAttribute('aF', new THREE.BufferAttribute(aF, 1));
+  geometry.setAttribute('aPhase', new THREE.BufferAttribute(aPhase, 1));
+  geometry.setAttribute('aSpd', new THREE.BufferAttribute(aSpd, 1));
+  geometry.setAttribute('aSeed', new THREE.BufferAttribute(aSeed, 1));
+  geometry.setAttribute('aSize', new THREE.BufferAttribute(aSize, 1));
+  geometry.setAttribute('aTail', new THREE.BufferAttribute(aTail, 1));
+
+  const iPosScale = new Float32Array(instances * 4);
+  const iQuat = new Float32Array(instances * 4);
+  const iDepth = new Float32Array(instances);
+  const iPlus = new Float32Array(instances * 3);
+  const iMinus = new Float32Array(instances * 3);
+  geometry.setAttribute('iPosScale', new THREE.InstancedBufferAttribute(iPosScale, 4));
+  geometry.setAttribute('iQuat', new THREE.InstancedBufferAttribute(iQuat, 4));
+  geometry.setAttribute('iDepth', new THREE.InstancedBufferAttribute(iDepth, 1));
+  geometry.setAttribute('iPlus', new THREE.InstancedBufferAttribute(iPlus, 3));
+  geometry.setAttribute('iMinus', new THREE.InstancedBufferAttribute(iMinus, 3));
+  geometry.instanceCount = instances;
+  geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(), R0 * 1.35);
+
+  for (let i = 0; i < instances; i++) {
+    iDepth[i] = depth;
+    const src = (start + i) * 3;
+    iPlus[i * 3] = nodePlusColor[src]; iPlus[i * 3 + 1] = nodePlusColor[src + 1]; iPlus[i * 3 + 2] = nodePlusColor[src + 2];
+    iMinus[i * 3] = nodeMinusColor[src]; iMinus[i * 3 + 1] = nodeMinusColor[src + 1]; iMinus[i * 3 + 2] = nodeMinusColor[src + 2];
+  }
+
+  const material = new THREE.ShaderMaterial({
+    uniforms: {
+      uM: { value: m },
+      uC: { value: shapeC() },
+      uGeom: { value: shapeGeom() },
+      uDelta: { value: formula.delta },
+      uAlpha: { value: 0 },
+      uTime: { value: 0 },
+      uFlow: { value: formula.flowSpeed },
+      uSize: { value: formula.particleSize },
+      uAlphaMul: { value: formula.particleAlpha },
+      uResScale: { value: 2 },
+      uFocal: { value: 600 },
+      uBridge: bridgeUniform,
+      uBridgeRadial: bridgeRadialUniform,
+      uBridgeAxial: bridgeAxialUniform,
+      uProfileZ: profileZUniform,
+      uChildProfileZ: childProfileZUniform,
+      uChildAxial: childAxialUniform,
+      uDeformOn: { value: 1 },
+      uGateLo: { value: formula.particleGate },
+      uGateHi: { value: formula.particleGate * 4 + 1 },
+      uSizeGamma: { value: 0.45 }
+    },
+    vertexShader: GLSL_COMMON + GLSL_FIBER_PHASE + `
+      attribute float aF, aPhase, aSpd, aSeed, aSize, aTail;
+      attribute vec4 iPosScale, iQuat;
+      attribute float iDepth;
+      attribute vec3 iPlus, iMinus;
+      uniform float uM, uDelta, uAlpha, uTime, uFlow, uSize, uAlphaMul, uResScale;
+      uniform float uFocal, uGateLo, uGateHi, uSizeGamma;
+      varying vec3 vCol;
+      varying float vA;
+      void main() {
+        float chir = chirOf(aF, uM);
+        float ph   = basePhase(aF, uM, iDepth, uDelta, uAlpha);
+        float t    = aPhase + uTime * aSpd * uFlow;
+        float u    = chir * t + ph;
+        vec3 local = torPoint(u, t);
+
+        if (uDeformOn > 0.5) local = deformPointAtDepth(local, iDepth);
+        vec3 p = qrot(iQuat, local * iPosScale.w) + iPosScale.xyz;
+        vec4 mv = modelViewMatrix * vec4(p, 1.0);
+        float depthEye = max(0.001, -mv.z);
+
+        float pxR  = iPosScale.w * ${R0.toFixed(6)} * uFocal / depthEye;
+        float gain = smoothstep(uGateLo, uGateHi, pxR);
+
+        float tw = 0.82 + 0.18 * sin(uTime * 2.3 + aSeed * 628.318);
+        vCol = (chir > 0.0 ? iPlus : iMinus) * 1.35;
+        vA = uAlphaMul * aTail * tw * gain;
+
+        float sizeScale = pow(max(iPosScale.w, 1e-5), uSizeGamma);
+        gl_PointSize = clamp(uSize * aSize * tw * uResScale * sizeScale * (10.0 / depthEye),
+                             0.0, 32.0 * uResScale * 0.5);
+        if (gain <= 0.0) gl_PointSize = 0.0;
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: `
+      varying vec3 vCol;
+      varying float vA;
+      void main() {
+        vec2 u = gl_PointCoord - 0.5;
+        float r2 = dot(u, u);
+        if (r2 > 0.25) discard;
+        float g = exp(-r2 * 10.0) * (1.0 - r2 * 4.0);
+        float a = g * vA;
+        if (a <= 0.002) discard;
+        gl_FragColor = vec4(vCol * a * 1.15, a);
+      }`,
+    transparent: true,
+    depthWrite: false,
+    depthTest: true,
+    blending: THREE.AdditiveBlending
+  });
+
+  const points = new THREE.Points(geometry, material);
+  points.frustumCulled = false;
+  points.renderOrder = 3;
+  return { depth, start, end, points, material, geometry, iPosScale, iQuat, iDepth, iPlus, iMinus, count: per * instances };
+}
+
+let torusMeshes = [];
+const torusMatrix = new THREE.Matrix4();
+const torusPos = new THREE.Vector3();
+const torusQuat = new THREE.Quaternion();
+const torusScale = new THREE.Vector3();
+
+function patchBridge(material, deformation = {}) {
+  const bridge = deformation.bridge || bridgeUniform;
+  const bridgeRadial = deformation.bridgeRadial || bridgeRadialUniform;
+  const bridgeAxial = deformation.bridgeAxial || bridgeAxialUniform;
+  const profileZ = deformation.profileZ || profileZUniform;
+  material.onBeforeCompile = shader => {
+    shader.uniforms.uBridge = bridge;
+    shader.uniforms.uBridgeRadial = bridgeRadial;
+    shader.uniforms.uBridgeAxial = bridgeAxial;
+    shader.uniforms.uProfileZ = profileZ;
+    shader.uniforms.uDeformOn = { value: material.userData.deformOn ? 1 : 0 };
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\n' + GLSL_BRIDGE)
+      .replace('#include <defaultnormal_vertex>', [
+        'vec3 asmNormal = objectNormal;',
+        'vec3 asmPos = position;',
+        'if (uDeformOn > 0.5) asmNormal = bridgeNormal( asmPos, asmNormal );',
+        '#ifdef USE_INSTANCING',
+        '  mat3 im = mat3( instanceMatrix );',
+        '  asmNormal /= vec3( dot( im[0], im[0] ), dot( im[1], im[1] ), dot( im[2], im[2] ) );',
+        '  asmNormal = im * asmNormal;',
+        '#endif',
+        'vec3 transformedNormal = normalMatrix * asmNormal;',
+        '#ifdef FLIP_SIDED',
+        '  transformedNormal = - transformedNormal;',
+        '#endif'
+      ].join('\n'))
+      .replace('#include <project_vertex>', [
+        'vec3 localPosition = transformed;',
+        'if (uDeformOn > 0.5) localPosition = deformPoint( localPosition );',
+        'vec4 mvPosition = vec4( localPosition, 1.0 );',
+        '#ifdef USE_INSTANCING',
+        '  mvPosition = instanceMatrix * mvPosition;',
+        '#endif',
+        'mvPosition = modelViewMatrix * mvPosition;',
+        'gl_Position = projectionMatrix * mvPosition;'
+      ].join('\n'));
+  };
+  return material;
+}
+
+function buildTorusMeshes() {
+  if (!formula.showTori && !formula.showRootTorus) return [];
+  const C = shapeC();
+  const opaque = formula.torusOpacity >= 0.999;
+  const meshes = [];
+
+  for (let d = 0; d <= formula.levels; d++) {
+    const range = depthRanges[d];
+    if (!range) continue;
+    const [start, end] = range;
+    const instances = end - start;
+    if (instances <= 0) continue;
+    if (d === 0 ? !formula.showRootTorus : !formula.showTori) continue;
+
+    const localAxial = d === 0 ? axialA() : childAxialA();
+    const geometry = new THREE.TorusGeometry(ringR() / R0, radialA() / R0, torusRadialAt(d), torusTubularAt(d));
+    geometry.scale(1, 1, localAxial / radialA());
+    const material = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      vertexColors: true,
+      roughness: formula.torusRoughness,
+      metalness: formula.torusMetalness,
+      envMapIntensity: formula.envIntensity,
+      transparent: !opaque,
+      opacity: formula.torusOpacity,
+      depthWrite: opaque,
+      polygonOffset: true,
+      polygonOffsetFactor: 2,
+      polygonOffsetUnits: 2,
+      side: THREE.DoubleSide,
+      emissive: new THREE.Color(formula.emissiveColor),
+      emissiveIntensity: formula.emissiveStrength
+    });
+
+    material.userData.deformOn = true;
+    material.userData.nestShell = !!treeContext;
+    patchBridge(material, d === 0 ? carrierDeformation : childCarrierDeformation);
+
+    const mesh = new THREE.InstancedMesh(geometry, material, instances);
+    mesh.renderOrder = 2;
+    mesh.frustumCulled = false;
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    const colour = torusColor(d);
+    for (let i = 0; i < instances; i++) mesh.setColorAt(i, colour);
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    meshes.push({ depth: d, start, mesh, geometry, instances });
+  }
+  torusMeshes = meshes;
+  return meshes;
+}
+
+const PHI = (1 + Math.sqrt(5)) / 2;
+const NEST_HOLE_CEILING = 0.9999;
+let nestTrees = [];
+let treeContext = null;
+
+function parseNestChirality(value) {
+  return String(value ?? '').split(/[^0-9]+/).filter(Boolean)
+    .map(n => Math.max(1, parseInt(n, 10))).join('-');
+}
+
+function nestGeometry(k, count) {
+  if (formula.nestSpacing === 'projected') {
+    const Cm = shapeC();
+    const C = Cm * Math.pow(PHI, k);
+    const tube = R0 * (Cm - 1) / Math.sqrt(Cm * Cm - 1) / Math.sqrt(C * C - 1);
+    return { C, ring: C * tube, tube, half: tube * axialA() / radialA() };
+  }
+  const s = formula.nestSpacing === 'golden' ? Math.pow(PHI, -k) : 1 - k / (count + 1);
+  const tube = radialA() * s;
+  return { C: ringR() / Math.max(1e-6, tube), ring: ringR(), tube, half: axialA() * s };
+}
+
+function freshTreeState() {
+  const carrierRadial = { value: 1 / R0 }, carrierAxial = { value: 1 / R0 }, childCarrierAxial = { value: 1 / R0 };
+  return {
+    circleCache: new Map(), circleCacheShapeKey: '', rotatedCircleData: [],
+    siteTables: [], supportAt: [], evenQuotaCache: [],
+    nodePosScale: null, nodeQuat: null, nodeDepth: null, nodeLight: null, nodePlusColor: null, nodeMinusColor: null,
+    nodeCount: 0, nodeCapacity: 0, depthRanges: [], workloadSafetyLimited: false,
+    fiberMeshes: [], fiberMaterial: null, particleTiers: [], torusMeshes: [],
+    latticeMeshes: [], latticeMaterials: [], latticeInfo: null, lastCarrierShapeKey: '',
+    profileZUniform: { value: 1 }, childAxialUniform: { value: 1 },
+    bridgeRadialUniform: { value: 1 }, bridgeAxialUniform: { value: 1 },
+    carrierBridgeRadialUniform: carrierRadial, carrierBridgeAxialUniform: carrierAxial,
+    childCarrierBridgeAxialUniform: childCarrierAxial,
+    carrierDeformation: { bridge: bridgeUniform, bridgeRadial: carrierRadial, bridgeAxial: carrierAxial, profileZ: carrierProfileZUniform },
+    childCarrierDeformation: { bridge: bridgeUniform, bridgeRadial: carrierRadial, bridgeAxial: childCarrierAxial, profileZ: carrierProfileZUniform },
+    treeRootScale: 1, holeCeiling: 0.9, treeBudgetShare: 1, treeRootTurn: 0
+  };
+}
+
+function treeStateNow() {
+  return {
+    circleCache, circleCacheShapeKey, rotatedCircleData, siteTables, supportAt, evenQuotaCache,
+    nodePosScale, nodeQuat, nodeDepth, nodeLight, nodePlusColor, nodeMinusColor,
+    nodeCount, nodeCapacity, depthRanges, workloadSafetyLimited,
+    fiberMeshes, fiberMaterial, particleTiers, torusMeshes, latticeMeshes, latticeMaterials, latticeInfo,
+    lastCarrierShapeKey, profileZUniform, childAxialUniform, bridgeRadialUniform, bridgeAxialUniform,
+    carrierBridgeRadialUniform, carrierBridgeAxialUniform, childCarrierBridgeAxialUniform,
+    carrierDeformation, childCarrierDeformation, treeRootScale, holeCeiling, treeBudgetShare, treeRootTurn
+  };
+}
+
+function useTreeState(s) {
+  ({
+    circleCache, circleCacheShapeKey, rotatedCircleData, siteTables, supportAt, evenQuotaCache,
+    nodePosScale, nodeQuat, nodeDepth, nodeLight, nodePlusColor, nodeMinusColor,
+    nodeCount, nodeCapacity, depthRanges, workloadSafetyLimited,
+    fiberMeshes, fiberMaterial, particleTiers, torusMeshes, latticeMeshes, latticeMaterials, latticeInfo,
+    lastCarrierShapeKey, profileZUniform, childAxialUniform, bridgeRadialUniform, bridgeAxialUniform,
+    carrierBridgeRadialUniform, carrierBridgeAxialUniform, childCarrierBridgeAxialUniform,
+    carrierDeformation, childCarrierDeformation, treeRootScale, holeCeiling, treeBudgetShare, treeRootTurn
+  } = s);
+}
+
+function nestFrame(tree) {
+  const g = nestGeometry(tree.k, tree.count);
+  const h = Math.min(NEST_HOLE_CEILING, (g.C - 1) / (g.C + 1));
+  const scale = g.ring / (R0 * (1 + h) / 2);
+  return { h, scale, profile: g.half / scale };
+}
+
+function withTree(tree, fn) {
+  if (treeContext) return fn();
+  const frame = nestFrame(tree);
+  const over = {
+    m: tree.m, holeRatio: frame.h, profile: frame.profile, levels: tree.levels, nodeBudget: tree.nodeBudget,
+    showRootTorus: formula.nestedShells, hideRootFibers: false,
+    showParticles: formula.showParticles && formula.nestParticles,
+    torusOpacity: formula.nestShellOpacity, plusColor: tree.plusColor, minusColor: tree.minusColor,
+    nestedTori: false, crossingLattice: formula.crossingLattice && formula.crossingNests
+  };
+  const mainState = treeStateNow();
+  const saved = {};
+  for (const key in over) { saved[key] = formula[key]; formula[key] = over[key]; }
+  useTreeState(tree.state);
+  treeRootScale = frame.scale;
+  treeRootTurn = tree.turn;
+  holeCeiling = NEST_HOLE_CEILING;
+  treeBudgetShare = 1 / tree.count;
+  treeContext = tree;
+  try {
+    return fn();
+  } finally {
+    treeContext = null;
+    tree.state = treeStateNow();
+    useTreeState(mainState);
+    Object.assign(formula, saved);
+  }
+}
+
+function addTreeObjects(group) {
+  if (!formula.hideAllFibers) for (const f of buildFiberMeshes()) group.add(f.mesh);
+  for (const l of buildLatticeMeshes()) group.add(l.mesh);
+
+  if (formula.showParticles) {
+    for (let d = 0; d <= formula.levels; d++) {
+      const falloff = Math.pow(formula.particleDepthFalloff, d);
+      if (d > 0 && falloff < 0.02) break;
+      const trains = Math.max(1, Math.round(formula.particleTrains * falloff));
+      const tail = Math.max(1, Math.round(formula.particleTail * falloff));
+      const tier = buildParticleTier(d, trains, tail);
+      if (tier) { particleTiers.push(tier); group.add(tier.points); }
+    }
+  }
+
+  for (const t of buildTorusMeshes()) group.add(t.mesh);
+}
+
+function buildNestTrees() {
+  nestTrees = [];
+  if (!formula.nestedTori) return;
+  const count = Math.max(1, Math.round(formula.nestedLevels));
+  const list = parseNestChirality(formula.nestChirality).split('-').filter(Boolean).map(Number);
+  const plus = new THREE.Color(formula.plusColor), minus = new THREE.Color(formula.minusColor);
+  const innerPlus = new THREE.Color(formula.nestPlusColor), innerMinus = new THREE.Color(formula.nestMinusColor);
+  for (let k = 1; k <= count; k++) {
+    if (nestGeometry(k, count).tube < 1e-3) continue;
+    const t = formula.nestColorMix * k / count;
+    const m = list.length ? list[Math.min(k - 1, list.length - 1)] : formula.m;
+    nestTrees.push({
+      k, count, m,
+      turn: formula.nestSpacing === 'projected' && k % 2 ? Math.PI / m : 0,
+      levels: Math.max(0, Math.round(formula.nestFractalLevels)),
+      nodeBudget: Math.max(1, Math.floor(formula.nodeBudget / count)),
+      plusColor: t > 0 ? '#' + plus.clone().lerp(innerPlus, t).getHexString() : formula.plusColor,
+      minusColor: t > 0 ? '#' + minus.clone().lerp(innerMinus, t).getHexString() : formula.minusColor,
+      state: freshTreeState()
+    });
+  }
+  for (const tree of nestTrees) withTree(tree, () => {
+    allocateNodes();
+    stepStructure(structureAlpha);
+    bakeNodeColors();
+    addTreeObjects(generated);
+    syncGPU();
+    setAnimationUniforms(animClock, structureAlpha);
+  });
+}
+
+const gcd = (a, b) => { a = Math.abs(a); b = Math.abs(b); while (b) [a, b] = [b, a % b]; return a || 1; };
+
+function loopChirality() {
+  let g = Math.max(1, Math.round(formula.m));
+  for (const tree of nestTrees) g = gcd(g, tree.m);
+  return g;
+}
+
+function latticeSiteIndices(m, shift) {
+  const sites = [];
+  for (let k = 0; k < m; k++) for (let l = 0; l < m; l++) for (let q = 0; q < 2; q++) {
+    sites.push({
+      A: (k + l + q * m + shift) % (2 * m),
+      B: ((l - k + q * m) % (2 * m) + 2 * m) % (2 * m)
+    });
+  }
+  return sites;
+}
+
+const angleGap = (a, b) => Math.abs(((a - b) % TAU + TAU * 1.5) % TAU - Math.PI);
+
+let nestSpokes = null;
+const spokePoint = new THREE.Vector3();
+
+function buildNestSpokes() {
+  nestSpokes = null;
+  if (!formula.crossingLattice || !formula.crossingJoinNests || !nestTrees.length || isE8Mode()) return;
+  const centres = formula.crossingMode === 'centres';
+  const layers = [
+    { tree: null, m: formula.m, shift: centres ? 1 : 0, ends: [] },
+    ...nestTrees.map(tree => ({ tree, m: tree.m, shift: (centres ? 1 : 0) + (tree.turn ? 1 : 0), ends: [] }))
+  ];
+  const pairs = [];
+  let slot = 0;
+  const push = (layer, s) => { layer.ends.push({ slot: slot++, u: Math.PI * s.A / layer.m, v: Math.PI * s.B / layer.m }); };
+
+  for (let i = 0; i + 1 < layers.length; i++) {
+    const a = layers[i], b = layers[i + 1];
+    const L = a.m / gcd(a.m, b.m) * b.m;
+    const key = (s, m) => s.A * (L / m) * 2 * L + s.B * (L / m);
+    const sa = latticeSiteIndices(a.m, a.shift), sb = latticeSiteIndices(b.m, b.shift);
+    const inA = new Map(sa.map(s => [key(s, a.m), s]));
+    let count = 0;
+    for (const s of sb) {
+      const hit = inA.get(key(s, b.m));
+      if (!hit) continue;
+      push(a, hit); push(b, s); count++;
+    }
+    const nearest = count === 0;
+    if (nearest) {
+      const [few, fewLayer, many, manyLayer] = sa.length <= sb.length ? [sa, a, sb, b] : [sb, b, sa, a];
+      for (const s of few) {
+        const u = Math.PI * s.A / fewLayer.m, v = Math.PI * s.B / fewLayer.m;
+        let best = many[0], bestD = Infinity;
+        for (const t of many) {
+          const du = angleGap(u, Math.PI * t.A / manyLayer.m), dv = angleGap(v, Math.PI * t.B / manyLayer.m);
+          if (du * du + dv * dv < bestD) { bestD = du * du + dv * dv; best = t; }
+        }
+        push(fewLayer, s); push(manyLayer, best); count++;
+      }
+    }
+    pairs.push({ outer: a.m, inner: b.m, count, nearest });
+  }
+
+  const positions = new Float32Array(slot * 3);
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3).setUsage(THREE.DynamicDrawUsage));
+  const material = new THREE.ShaderMaterial({
+    uniforms: {
+      uColor: { value: new THREE.Color(formula.crossingColor) },
+      uOpacity: { value: formula.crossingOpacity },
+      uIsPoint: { value: 0 }
+    },
+    vertexShader: 'void main() { gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: LATTICE_FRAG,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false
+  });
+  const mesh = new THREE.LineSegments(geometry, material);
+  mesh.frustumCulled = false;
+  mesh.renderOrder = 6;
+  generated.add(mesh);
+  nestSpokes = { mesh, geometry, material, positions, layers, pairs, count: slot / 2 };
+  updateNestSpokes();
+}
+
+function updateNestSpokes() {
+  if (!nestSpokes) return;
+  const pos = nestSpokes.positions;
+  for (const layer of nestSpokes.layers) {
+    if (!layer.ends.length) continue;
+    const write = () => {
+      for (const end of layer.ends) {
+        P(end.u, end.v - structureAlpha, spokePoint);
+        deformVec(spokePoint.x, spokePoint.y, spokePoint.z, spokePoint, 0);
+        const o = end.slot * 3;
+        pos[o] = spokePoint.x * treeRootScale;
+        pos[o + 1] = spokePoint.y * treeRootScale;
+        pos[o + 2] = spokePoint.z * treeRootScale;
+      }
+    };
+    if (layer.tree) withTree(layer.tree, write); else write();
+  }
+  nestSpokes.geometry.attributes.position.needsUpdate = true;
+  nestSpokes.material.uniforms.uColor.value.set(formula.crossingColor);
+  nestSpokes.material.uniforms.uOpacity.value = formula.crossingOpacity;
+}
+
+function nestReadout() {
+  if (!nestTrees.length) return '';
+  const nodes = nestTrees.reduce((n, t) => n + t.state.nodeCount, 0);
+  const limited = nestTrees.some(t => t.state.workloadSafetyLimited);
+  let text = `nested tori = ${nestTrees.length}, m ${nestTrees.map(t => t.m).join(' ')} outer to inner, ` +
+             `${{ golden: 'golden-ratio', projected: 'projected golden-ratio' }[formula.nestSpacing] || 'even'} spacing\n` +
+             `  nest fractal levels = ${nestTrees[0].levels}, nest nodes = ${nodes.toLocaleString()}${limited ? ' (workload safety limit)' : ''}\n`;
+  const lattices = nestTrees.filter(t => t.state.latticeInfo);
+  if (lattices.length) {
+    text += `  nest lattices = ${lattices.map(t => `m ${t.m}: ${t.state.latticeInfo.vertices}V ${t.state.latticeInfo.edges}E`).join(', ')} per torus\n`;
+  }
+  if (nestSpokes) {
+    text += `  nest joins = ${nestSpokes.count} (${nestSpokes.pairs.map(p => `${p.outer}|${p.inner} ${p.count}${p.nearest ? ' nearest' : ''}`).join(', ')})\n`;
+  }
+  return text;
+}
+
+const E8_HOLE = (Math.sqrt(PHI + 2) / PHI - 1) / (Math.sqrt(PHI + 2) / PHI + 1);
+const E8_TOLERANCE = 0.01;
+const E8_LINK_SHELLS = [1, PHI, Math.sqrt(PHI + 2), PHI * PHI];
+const isE8Mode = () => formula.crossingMode === 'e8' || formula.crossingMode === 'e8links';
+let e8Polytope = null;
+const e8Point = new THREE.Vector3();
+
+function e8Layers() {
+  const layers = [{ tree: null, m: Math.max(1, Math.round(formula.m)), C: shapeC(), turn: 0 }];
+  for (const tree of nestTrees) layers.push({ tree, m: tree.m, C: nestGeometry(tree.k, tree.count).C, turn: tree.turn });
+  return layers;
+}
+
+function buildE8Polytope() {
+  e8Polytope = null;
+  if (!formula.crossingLattice || !isE8Mode()) return;
+  const layers = e8Layers();
+  const verts = [];
+  const byLayer = layers.map(() => []);
+  layers.forEach((layer, li) => {
+    const r2 = 1 / layer.C, r1 = Math.sqrt(Math.max(0, 1 - r2 * r2)), m = layer.m;
+    for (let k = 0; k < m; k++) for (let l = 0; l < m; l++) for (let q = 0; q < 2; q++) {
+      const u = Math.PI * (k + l) / m + q * Math.PI + layer.turn;
+      const v = Math.PI * (l - k) / m + q * Math.PI;
+      byLayer[li].push(verts.length);
+      verts.push({ u, v, p: [r1 * Math.cos(u), r1 * Math.sin(u), r2 * Math.cos(v), r2 * Math.sin(v)] });
+    }
+  });
+  const m = layers[0].m;
+  const core = [], axis = [];
+  for (let j = 0; j < 2 * m; j++) {
+    const a = Math.PI * (j + 0.5) / m;
+    core.push(verts.length); verts.push({ u: a, v: 0, p: [Math.cos(a), Math.sin(a), 0, 0] });
+    axis.push(verts.length); verts.push({ u: 0, v: a, p: [0, 0, Math.cos(a), Math.sin(a)] });
+  }
+
+  const n = verts.length;
+  let reach = 2 * Math.sin(Math.PI / (2 * m));
+  for (const layer of layers) reach = Math.max(reach, 2 * Math.sin(Math.PI / (2 * layer.m)));
+  const shells = formula.crossingMode === 'e8links' ? E8_LINK_SHELLS : [1];
+  const pos = new Float64Array(n * 4);
+  verts.forEach((vx, i) => pos.set(vx.p, i * 4));
+  const pairsWithin = (cell, visit) => {
+    const span = Math.ceil(1 / cell) + 2, width = 2 * span + 1;
+    const cc = new Int32Array(n * 4);
+    const buckets = new Map();
+    for (let i = 0; i < n; i++) {
+      for (let k = 0; k < 4; k++) cc[i * 4 + k] = Math.floor(pos[i * 4 + k] / cell) + span;
+      const key = ((cc[i * 4] * width + cc[i * 4 + 1]) * width + cc[i * 4 + 2]) * width + cc[i * 4 + 3];
+      let list = buckets.get(key);
+      if (!list) buckets.set(key, list = []);
+      list.push(i);
+    }
+    const limit = cell * cell;
+    for (let i = 0; i < n; i++) {
+      const a = cc[i * 4], b = cc[i * 4 + 1], c = cc[i * 4 + 2], d = cc[i * 4 + 3];
+      for (let da = -1; da <= 1; da++) for (let db = -1; db <= 1; db++) for (let dc = -1; dc <= 1; dc++) for (let dd = -1; dd <= 1; dd++) {
+        const list = buckets.get((((a + da) * width + b + db) * width + c + dc) * width + d + dd);
+        if (!list) continue;
+        for (let t = 0; t < list.length; t++) {
+          const j = list[t];
+          if (j <= i) continue;
+          const x0 = pos[i * 4] - pos[j * 4], x1 = pos[i * 4 + 1] - pos[j * 4 + 1];
+          const x2 = pos[i * 4 + 2] - pos[j * 4 + 2], x3 = pos[i * 4 + 3] - pos[j * 4 + 3];
+          const dsq = x0 * x0 + x1 * x1 + x2 * x2 + x3 * x3;
+          if (dsq < limit && dsq > 1e-18) visit(i, j, Math.sqrt(dsq));
+        }
+      }
+    }
+  };
+  const nearest = new Float64Array(n).fill(Infinity);
+  pairsWithin(reach * (1 + E8_TOLERANCE) + 1e-9, (i, j, dd) => {
+    if (dd < nearest[i]) nearest[i] = dd;
+    if (dd < nearest[j]) nearest[j] = dd;
+  });
+  const onShell = (i, dd) => {
+    for (let s = 0; s < shells.length; s++) {
+      const r = nearest[i] * shells[s];
+      if (Math.abs(dd - r) <= r * E8_TOLERANCE) return true;
+    }
+    return false;
+  };
+  const edges = [];
+  pairsWithin(reach * shells[shells.length - 1] * (1 + E8_TOLERANCE) + 1e-9, (i, j, dd) => {
+    if (onShell(i, dd) || onShell(j, dd)) edges.push(i, j);
+  });
+  const degree = new Uint32Array(n);
+  for (const i of edges) degree[i]++;
+
+  const vert = `
+    attribute float aVisible;
+    uniform float uPointSize;
+    void main() {
+      if (aVisible < 0.5) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; return; }
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      gl_PointSize = uPointSize;
+    }`;
+  const layerMesh = (count, isPoint) => {
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(count * 3), 3).setUsage(THREE.DynamicDrawUsage));
+    geometry.setAttribute('aVisible', new THREE.BufferAttribute(new Float32Array(count), 1).setUsage(THREE.DynamicDrawUsage));
+    const material = new THREE.ShaderMaterial({
+      uniforms: {
+        uColor: { value: new THREE.Color(formula.crossingColor) },
+        uOpacity: { value: formula.crossingOpacity },
+        uPointSize: { value: 7 * Math.min(window.devicePixelRatio || 1, 2) },
+        uIsPoint: { value: isPoint ? 1 : 0 }
+      },
+      vertexShader: vert,
+      fragmentShader: LATTICE_FRAG,
+      transparent: true,
+      depthTest: false,
+      depthWrite: false
+    });
+    const mesh = isPoint ? new THREE.Points(geometry, material) : new THREE.LineSegments(geometry, material);
+    mesh.frustumCulled = false;
+    mesh.renderOrder = isPoint ? 7 : 6;
+    generated.add(mesh);
+    return { mesh, geometry, material };
+  };
+  e8Polytope = {
+    layers, verts, byLayer, core, axis,
+    edges: Uint32Array.from(edges),
+    degreeMin: n ? Math.min(...degree) : 0, degreeMax: n ? Math.max(...degree) : 0,
+    projected: new Float32Array(n * 3), visible: new Uint8Array(n),
+    lines: layerMesh(edges.length, false),
+    points: formula.crossingPoints ? layerMesh(n, true) : null
+  };
+  updateE8Polytope();
+}
+
+function updateE8Polytope() {
+  if (!e8Polytope) return;
+  const { layers, verts, byLayer, core, axis, edges, projected, visible, lines, points } = e8Polytope;
+  const limit = 3 * R0;
+  const place = (i, x, y, z, ok) => {
+    visible[i] = ok && Math.hypot(x, y, z) < limit ? 1 : 0;
+    projected[i * 3] = x; projected[i * 3 + 1] = y; projected[i * 3 + 2] = z;
+  };
+  layers.forEach((layer, li) => {
+    const write = () => {
+      for (const i of byLayer[li]) {
+        P(verts[i].u, verts[i].v - structureAlpha, e8Point);
+        deformVec(e8Point.x, e8Point.y, e8Point.z, e8Point, 0);
+        place(i, e8Point.x * treeRootScale, e8Point.y * treeRootScale, e8Point.z * treeRootScale, true);
+      }
+    };
+    if (layer.tree) withTree(layer.tree, write); else write();
+  });
+  const C = shapeC(), s = R0 * (C - 1) / Math.sqrt(C * C - 1);
+  for (const i of core) place(i, s * Math.cos(verts[i].u), s * Math.sin(verts[i].u), 0, true);
+  for (const i of axis) {
+    const v = verts[i].v - structureAlpha, d = 1 - Math.sin(v);
+    place(i, 0, 0, s * Math.cos(v) / Math.max(d, 1e-9), d > 1e-6);
+  }
+
+  const lp = lines.geometry.attributes.position.array, lv = lines.geometry.attributes.aVisible.array;
+  for (let e = 0; e < edges.length; e++) {
+    const i = edges[e];
+    lp[e * 3] = projected[i * 3]; lp[e * 3 + 1] = projected[i * 3 + 1]; lp[e * 3 + 2] = projected[i * 3 + 2];
+    lv[e] = visible[i] && visible[edges[e % 2 ? e - 1 : e + 1]] ? 1 : 0;
+  }
+  lines.geometry.attributes.position.needsUpdate = true;
+  lines.geometry.attributes.aVisible.needsUpdate = true;
+  for (const part of points ? [lines, points] : [lines]) {
+    part.material.uniforms.uColor.value.set(formula.crossingColor);
+    part.material.uniforms.uOpacity.value = formula.crossingOpacity;
+  }
+  if (points) {
+    points.geometry.attributes.position.array.set(projected);
+    points.geometry.attributes.aVisible.array.set(visible);
+    points.geometry.attributes.position.needsUpdate = true;
+    points.geometry.attributes.aVisible.needsUpdate = true;
+  }
+}
+
+function e8Readout() {
+  const { layers, verts, edges, degreeMin, degreeMax } = e8Polytope;
+  const V = verts.length, E = edges.length / 2;
+  const links = formula.crossingMode === 'e8links';
+  const exact = V === 120 && degreeMin === degreeMax && (links ? E === 3360 && degreeMin === 56 : E === 720 && degreeMin === 12);
+  const trueProjection = Math.abs(axialA() - radialA()) / radialA() < 0.01 && formula.bridge === 0 &&
+                         (!nestTrees.length || formula.nestSpacing === 'projected');
+  return `${links ? 'E8 links, golden shells' : 'E8 shadow, nearest'} on the 3-sphere = ${V} vertices, ${E} edges, degree ${degreeMin === degreeMax ? degreeMin : `${degreeMin}-${degreeMax}`}\n` +
+         `  ${layers.length} ${layers.length === 1 ? 'torus' : 'tori'} of crossings (m ${layers.map(l => l.m).join(' ')}), ${2 * layers[0].m} points each on the core circle and the axis\n` +
+         (exact
+           ? (links ? '  all 6,720 E8 links, two to each line, 56 at every point as at every E8 root\n'
+                    : '  this is the 600-cell, the 4D shadow of E8\n')
+           : `  ${links ? 'E8 closes' : 'the 600-cell forms'} at m 5, hole ${E8_HOLE.toFixed(4)}, one nest in projected golden spacing\n`) +
+         (trueProjection ? '' : '  circles are placed for a true projection: round profile, bridge 0, projected nests\n');
+}
+
+function syncGPU() {
+  for (const l of latticeMeshes) {
+    l.geometry.attributes.iPosScale.needsUpdate = true;
+    l.geometry.attributes.iQuat.needsUpdate = true;
+  }
+  if (fiberMeshes.length) {
+    const lx = SHEEN_DIR.x, ly = SHEEN_DIR.y, lz = SHEEN_DIR.z;
+    for (let i = 0; i < nodeCount; i++) {
+      const o = i * 4;
+      const qx = -nodeQuat[o], qy = -nodeQuat[o + 1], qz = -nodeQuat[o + 2], qw = nodeQuat[o + 3];
+      const tx = 2 * (qy * lz - qz * ly);
+      const ty = 2 * (qz * lx - qx * lz);
+      const tz = 2 * (qx * ly - qy * lx);
+      const b = i * 3;
+      nodeLight[b]     = lx + qw * tx + (qy * tz - qz * ty);
+      nodeLight[b + 1] = ly + qw * ty + (qz * tx - qx * tz);
+      nodeLight[b + 2] = lz + qw * tz + (qx * ty - qy * tx);
+    }
+    for (const f of fiberMeshes) {
+      f.geometry.attributes.iPosScale.needsUpdate = true;
+      f.geometry.attributes.iQuat.needsUpdate = true;
+      f.geometry.attributes.iLight.needsUpdate = true;
+    }
+  }
+
+  for (const tier of particleTiers) {
+    const [start, end] = depthRanges[tier.depth] || [0, 0];
+    const n = Math.min(end - start, tier.iDepth.length);
+    tier.geometry.instanceCount = n;
+    for (let i = 0; i < n; i++) {
+      const src = (start + i) * 4;
+      tier.iPosScale[i * 4] = nodePosScale[src];
+      tier.iPosScale[i * 4 + 1] = nodePosScale[src + 1];
+      tier.iPosScale[i * 4 + 2] = nodePosScale[src + 2];
+      tier.iPosScale[i * 4 + 3] = nodePosScale[src + 3];
+      tier.iQuat[i * 4] = nodeQuat[src];
+      tier.iQuat[i * 4 + 1] = nodeQuat[src + 1];
+      tier.iQuat[i * 4 + 2] = nodeQuat[src + 2];
+      tier.iQuat[i * 4 + 3] = nodeQuat[src + 3];
+    }
+    tier.geometry.attributes.iPosScale.needsUpdate = true;
+    tier.geometry.attributes.iQuat.needsUpdate = true;
+  }
+
+  for (const t of torusMeshes) {
+    const n = Math.min(t.instances, Math.max(0, nodeCount - t.start));
+    for (let i = 0; i < n; i++) {
+      const o = (t.start + i) * 4;
+      const sc = nodePosScale[o + 3] * R0;
+      torusPos.set(nodePosScale[o], nodePosScale[o + 1], nodePosScale[o + 2]);
+      torusQuat.set(nodeQuat[o], nodeQuat[o + 1], nodeQuat[o + 2], nodeQuat[o + 3]);
+      torusScale.set(sc, sc, sc);
+      torusMatrix.compose(torusPos, torusQuat, torusScale);
+      t.mesh.setMatrixAt(i, torusMatrix);
+    }
+    t.mesh.count = n;
+    t.mesh.instanceMatrix.needsUpdate = true;
+  }
+}
+
+const PARTICLE_REFERENCE = 1700;
+const particleBuffer = new THREE.Vector2();
+let frameParticleSize = 0;
+
+function cameraTubeDistance() {
+  const p = camera.position;
+  const dr = Math.hypot(p.x, p.y) - ringR();
+  return Math.hypot(dr / radialA(), p.z / axialA());
+}
+
+function effectiveParticleSize() {
+  if (!formula.insideSizeShift) return formula.particleSize;
+  const t = THREE.MathUtils.smoothstep(cameraTubeDistance(), 0.9, 1.1);
+  return formula.particleSizeInside + (formula.particleSize - formula.particleSizeInside) * t;
+}
+
+let lastCarrierShapeKey = '';
+
+function syncShapeUniforms() {
+  const C = shapeC();
+  const G = shapeGeom();
+  if (fiberMaterial) {
+    fiberMaterial.uniforms.uC.value = C;
+    fiberMaterial.uniforms.uGeom.value = G;
+    fiberMaterial.uniforms.uDelta.value = formula.delta;
+    fiberMaterial.uniforms.uM.value = formula.m;
+  }
+  for (const lm of latticeMaterials) {
+    lm.uniforms.uC.value = C;
+    lm.uniforms.uGeom.value = G;
+    lm.uniforms.uDelta.value = formula.delta;
+    lm.uniforms.uColor.value.set(formula.crossingColor);
+    lm.uniforms.uOpacity.value = formula.crossingOpacity;
+  }
+  for (const tier of particleTiers) {
+    tier.material.uniforms.uC.value = C;
+    tier.material.uniforms.uGeom.value = G;
+    tier.material.uniforms.uDelta.value = formula.delta;
+    tier.material.uniforms.uM.value = formula.m;
+  }
+  const carrierShapeKey = `${C.toPrecision(12)}|${axialA().toPrecision(12)}|${childAxialA().toPrecision(12)}`;
+  if (carrierShapeKey !== lastCarrierShapeKey) {
+    lastCarrierShapeKey = carrierShapeKey;
+    for (const t of torusMeshes) {
+      const previous = t.mesh.geometry;
+      const localAxial = t.depth === 0 ? axialA() : childAxialA();
+      const g = new THREE.TorusGeometry(ringR() / R0, radialA() / R0, torusRadialAt(t.depth), torusTubularAt(t.depth));
+      g.scale(1, 1, localAxial / radialA());
+      t.mesh.geometry = g;
+      t.geometry = g;
+      previous.dispose();
+    }
+  }
+}
+
+function setAnimationUniforms(time, alpha) {
+  bridgeUniform.value = Math.max(0, formula.bridge);
+  bridgeRadialUniform.value = radialA();
+  bridgeAxialUniform.value = Math.max(1e-4, axialA());
+  profileZUniform.value = heightScaleZ();
+  childProfileZUniform.value = formula.childHeight;
+  childAxialUniform.value = Math.max(1e-4, childAxialA());
+  carrierBridgeRadialUniform.value = radialA() / R0;
+  carrierBridgeAxialUniform.value = Math.max(1e-4, axialA() / R0);
+  childCarrierBridgeAxialUniform.value = Math.max(1e-4, childAxialA() / R0);
+  syncShapeUniforms();
+  if (!treeContext) applyTorusHeight();
+  if (fiberMaterial) fiberMaterial.uniforms.uAlpha.value = alpha;
+  for (const lm of latticeMaterials) lm.uniforms.uAlpha.value = alpha;
+  const focal = 0.5 * renderer.domElement.height / Math.tan(THREE.MathUtils.degToRad(camera.fov) * 0.5);
+  const size = treeContext ? frameParticleSize : (frameParticleSize = effectiveParticleSize());
+  renderer.getDrawingBufferSize(particleBuffer);
+  const resScale = 2 * particleBuffer.y / PARTICLE_REFERENCE;
+  for (const tier of particleTiers) {
+    tier.material.uniforms.uAlpha.value = alpha;
+    tier.material.uniforms.uTime.value = time;
+    tier.material.uniforms.uFocal.value = focal;
+    tier.material.uniforms.uFlow.value = formula.flowSpeed;
+    tier.material.uniforms.uSize.value = size;
+    tier.material.uniforms.uResScale.value = resScale;
+    tier.material.uniforms.uAlphaMul.value = formula.particleAlpha;
+    tier.material.uniforms.uGateLo.value = formula.particleGate;
+    tier.material.uniforms.uGateHi.value = formula.particleGate * 4 + 1;
+  }
+}
+
+function updateLegend() {
+  document.getElementById('legendPlus').style.background = formula.plusColor;
+  document.getElementById('legendMinus').style.background = formula.minusColor;
+  document.getElementById('legendTorus').style.background = formula.torusColor;
+}
+
+function applyPostLook() {
+  bloomPass.strength = formula.bloomStrength;
+  bloomPass.radius = formula.bloomRadius;
+  bloomPass.threshold = formula.bloomThreshold;
+  bloomPass.highPassUniforms['smoothWidth'].value = formula.bloomKnee;
+  bloomPass.enabled = formula.bloomStrength > 0;
+  document.getElementById('vignetteOverlay').style.opacity = String(formula.vignette);
+  renderer.toneMappingExposure = formula.exposure;
+  requestRender();
+}
+
+function applyEnvIntensity() {
+  generated.traverse(obj => {
+    const material = obj.material;
+    if (material && 'envMapIntensity' in material) {
+      material.envMapIntensity = formula.envIntensity;
+      material.needsUpdate = true;
+    }
+  });
+  requestRender();
+}
+
+const heightScaleZ = () => axialA() / Math.max(1e-6, rawAxialA());
+
+let lastZScale = null;
+
+function applyTorusHeight() {
+  if (heightScaleZ() !== lastZScale) {
+    lastZScale = heightScaleZ();
+    lastClipDistance = -1;
+    requestRender();
+  }
+}
+
+function applySceneLook() {
+  scene.background = new THREE.Color(formula.backgroundColor);
+  scene.fog = formula.fogDensity > 0 ? new THREE.FogExp2(formula.backgroundColor, formula.fogDensity) : null;
+  applyPostLook();
+  updateLegend();
+}
+
+let structureRadial = R0 * 1.35;
+let structureAxial = R0 * 1.35;
+let lastClipDistance = -1;
+
+const sceneRadius = () => Math.max(structureRadial, structureAxial) * 1.15;
+
+function measureSceneRadius() {
+  let radial = R0, axial = R0;
+  const localReach = Math.max(R0, axialA(), childAxialA());
+  for (let i = 0; i < nodeCount; i++) {
+    const o = i * 4;
+    const s = nodePosScale[o + 3] * localReach;
+    const r = Math.hypot(nodePosScale[o], nodePosScale[o + 1]) + s;
+    const z = Math.abs(nodePosScale[o + 2]) + s;
+    if (r > radial) radial = r;
+    if (z > axial) axial = z;
+  }
+  structureRadial = radial;
+  structureAxial = axial;
+  lastClipDistance = -1;
+}
+
+function updateCameraClipping() {
+  const distance = camera.position.distanceTo(controls.target);
+  if (Math.abs(distance - lastClipDistance) < 1e-3) return;
+  lastClipDistance = distance;
+  const radius = sceneRadius();
+  camera.near = Math.max(distance * 0.02, distance - radius * 1.15);
+  camera.far = distance + radius * 2.5;
+  camera.updateProjectionMatrix();
+  requestRender();
+}
+
+function rebuild() {
+  applySceneLook();
+  scene.remove(generated);
+  disposeObject(generated);
+  generated = new THREE.Group();
+  scene.add(generated);
+  circleCache.clear();
+  circleCacheShapeKey = '';
+  rotatedCircleData.length = 0;
+  siteTables.length = 0;
+  supportAt.length = 0;
+  evenQuotaCache.length = 0;
+  particleTiers = [];
+  fiberMeshes = [];
+  fiberMaterial = null;
+  torusMeshes = [];
+
+  allocateNodes();
+  stepStructure(structureAlpha);
+  measureSceneRadius();
+  structureDirty = false;
+  structureBoundsDirty = false;
+  bakeNodeColors();
+
+  addTreeObjects(generated);
+
+  lastZScale = null;
+  applyTorusHeight();
+  lastCarrierShapeKey = '';
+  syncGPU();
+  setAnimationUniforms(animClock, structureAlpha);
+  buildNestTrees();
+  buildNestSpokes();
+  buildE8Polytope();
+
+  const requested = requestedNodes();
+  const particleTotal = particleTiers.reduce((n, t) => n + t.count, 0);
+  const fiberSegments = fiberMeshes.reduce((n, f) => n + f.instances * 2 * formula.m * f.samples, 0);
+  const latticeSites = 2 * formula.m * formula.m;
+  const activeSiteCounts = Array.from({ length:Math.max(1, formula.levels) }, (_, depth) =>
+    siteTables[depth]?.keep.reduce((sum, keep) => sum + keep, 0) ?? latticeSites
+  );
+  const activeSiteMin = Math.min(...activeSiteCounts), activeSiteMax = Math.max(...activeSiteCounts);
+  const siteStatus = formula.evenNodes
+    ? `${activeSiteMin === activeSiteMax ? activeSiteMin.toLocaleString() : `${activeSiteMin.toLocaleString()}–${activeSiteMax.toLocaleString()} by depth`} kept of ${latticeSites.toLocaleString()}`
+    : latticeSites.toLocaleString();
+
+  document.getElementById('status').textContent =
+    `mode = animated (A only)\n` +
+    `fibers / chirality = ${formula.m.toLocaleString()}\n` +
+    `interstitial sites / node = ${siteStatus}\n` +
+    `formula-requested nodes = ${requested.toLocaleString()}\n` +
+    `effective node cap = ${nodeCapacity.toLocaleString()}${workloadSafetyLimited ? ' (workload safety limit)' : ''}\n` +
+    `rendered nodes = ${nodeCount.toLocaleString()}\n` +
+    `fiber segments (instanced) = ${fiberSegments.toLocaleString()}\n` +
+    `particles = ${particleTotal.toLocaleString()} in ${particleTiers.length} tier(s)\n` +
+    `carrier tori = ${torusMeshes.reduce((n, t) => n + t.mesh.count, 0).toLocaleString()} in ${torusMeshes.length} LOD tier(s)\n` +
+    `torus triangles / frame = ${torusMeshes.reduce((n, t) => n + t.mesh.count * torusRadialAt(t.depth) * torusTubularAt(t.depth) * 2, 0).toLocaleString()}\n` +
+    `fiber vertices / frame = ${fiberMeshes.reduce((n, f) => n + f.instances * 2 * formula.m * f.samples * 2, 0).toLocaleString()}\n` +
+    `\nshape:  hole ${(formula.holeRatio).toFixed(3)} x outer  |  profile ${formula.profile.toFixed(2)}\n` +
+    `  outer radius = ${R0.toFixed(4)}   hole radius = ${(R0 * holeH()).toFixed(4)}\n` +
+    `  ring = ${ringR().toFixed(4)}   tube radial = ${radialA().toFixed(4)}\n` +
+    `  main half-height = ${axialA().toFixed(4)}   child half-height = ${childAxialA().toFixed(4)}\n` +
+    `  main tube aspect = ${(axialA() / radialA()).toFixed(3)}   child aspect = ${(childAxialA() / radialA()).toFixed(3)}\n` +
+    `  C = ${shapeC().toFixed(4)}   profile Z scale = ${heightScaleZ().toFixed(4)}\n` +
+    `  bridge = ${formula.bridge.toFixed(3)}   (0 hourglass, 1 cylinder of radius ${(R0 * holeH()).toFixed(4)})\n` +
+    `counter-rotation alpha = ${structureAlpha.toFixed(3)} rad\n` +
+    latticeReadout() +
+    nestReadout() +
+    `loop period = ${(TAU / loopChirality() / Math.max(1e-4, formula.alphaSpeed)).toFixed(1)} s\n` +
+    `camera view = ${formula.cameraView}, distance = ${formula.cameraDistance.toFixed(2)}`;
+}
+
+function registerControl(id, key, type, parser = v => v, onApply = null, rebuildOnChange = true, commitOnly = false) {
+  const input = document.getElementById(id);
+  const output = input.nextElementSibling;
+  const readValue = () => {
+    if (type === 'checkbox') return input.checked;
+    if (type === 'select') {
+      const valid = [...input.options].some(option => option.value === input.value);
+      if (!valid) input.value = String(defaults[key] ?? input.options[0]?.value ?? '');
+      return parser(input.value);
+    }
+    let value = parser(input.value);
+    if (type === 'number' || type === 'range') {
+      if (!Number.isFinite(value)) value = Number(defaults[key]);
+      if (input.hasAttribute('min')) value = Math.max(Number(input.min), value);
+      if (input.hasAttribute('max')) value = Math.min(Number(input.max), value);
+      input.value = String(value);
+    }
+    return value;
+  };
+  const showOnly = () => {
+    if (!output) return;
+    const v = parser(input.value);
+    output.textContent = typeof v === 'number' && !Number.isFinite(v) ? '—' : typeof v === 'number'
+      ? (Number.isInteger(v) ? v.toLocaleString() : String(v)) : String(v);
+  };
+  const sync = (triggerRebuild = false) => {
+    const value = readValue();
+    formula[key] = value;
+    if (output) {
+      if (type === 'checkbox') output.textContent = value ? 'on' : 'off';
+      else output.textContent = typeof value === 'number'
+        ? (Number.isInteger(value) ? value.toLocaleString() : String(value))
+        : String(value);
+    }
+    if (onApply) onApply(value, triggerRebuild);
+    if (triggerRebuild && rebuildOnChange) rebuild();
+    requestRender();
+  };
+  controlMap.set(key, { input, type, output, parser, sync });
+  const event = (type === 'number' || type === 'range' || type === 'color') ? 'input' : 'change';
+  if (commitOnly) input.addEventListener('input', showOnly);
+  else input.addEventListener(event, () => sync(false));
+  input.addEventListener('change', () => sync(true));
+  sync(false);
+}
+
+registerControl('m', 'm', 'number', v => parseInt(v, 10), null, true, true);
+registerControl('levels', 'levels', 'range', v => parseInt(v, 10), null, true, true);
+registerControl('delta', 'delta', 'range', Number, null, true, true);
+registerControl('aFill', 'aFill', 'range', Number, () => markStructureDirty(true));
+const applyLiveShape = (_value, committed) => {
+  markStructureDirty(true);
+  if (committed && (formula.nestedTori || formula.evenNodes)) rebuild();
+};
+const applyLiveChildShape = (_value, committed) => {
+  markStructureDirty(true);
+  if (committed && formula.evenNodes) rebuild();
+};
+const applyLiveBridge = (_value, committed) => {
+  markStructureDirty(true);
+  if (committed && formula.evenNodes) rebuild();
+};
+const NEST_CONTROL_IDS = ['nestedLevels', 'nestedShells', 'nestChirality', 'nestSpacing', 'nestFractalLevels',
+  'nestShellOpacity', 'nestParticles', 'nestColorMix', 'nestPlusColor', 'nestMinusColor', 'crossingNests', 'crossingJoinNests'];
+const syncNestedControlState = on => {
+  for (const id of NEST_CONTROL_IDS) document.getElementById(id).disabled = !on;
+};
+registerControl('holeRatio', 'holeRatio', 'range', Number, applyLiveShape, false);
+registerControl('profile', 'profile', 'range', Number, applyLiveShape, false);
+registerControl('childHeight', 'childHeight', 'range', Number, applyLiveChildShape, false);
+registerControl('bridge', 'bridge', 'range', Number, applyLiveBridge, false);
+registerControl('nestedTori', 'nestedTori', 'checkbox', v => v, syncNestedControlState);
+registerControl('nestedLevels', 'nestedLevels', 'range', v => parseInt(v, 10));
+registerControl('nestedShells', 'nestedShells', 'checkbox');
+registerControl('nestChirality', 'nestChirality', 'text', parseNestChirality);
+registerControl('nestSpacing', 'nestSpacing', 'select');
+registerControl('nestFractalLevels', 'nestFractalLevels', 'range', v => parseInt(v, 10), null, true, true);
+registerControl('nestShellOpacity', 'nestShellOpacity', 'range', Number);
+registerControl('nestParticles', 'nestParticles', 'checkbox');
+registerControl('nestColorMix', 'nestColorMix', 'range', Number);
+registerControl('nestPlusColor', 'nestPlusColor', 'color');
+registerControl('nestMinusColor', 'nestMinusColor', 'color');
+registerControl('evenNodes', 'evenNodes', 'checkbox');
+registerControl('lodStrength', 'lodStrength', 'range', Number);
+registerControl('samples', 'samples', 'range', v => parseInt(v, 10), null, true, true);
+registerControl('budget', 'nodeBudget', 'range', v => parseInt(v, 10), null, true, true);
+registerControl('cameraView', 'cameraView', 'select', v => v, value => applyCameraView(value), false);
+registerControl('cameraDistance', 'cameraDistance', 'range', Number, () => applyCameraView(formula.cameraView), false);
+registerControl('topBottomSnapEpsilon', 'topBottomSnapEpsilon', 'range', Number, null, false);
+registerControl('lockAtTopBottom', 'lockAtTopBottom', 'checkbox', v => v, value => { if (!value) clearPoleLock(); else if (formula.cameraView === 'top' || formula.cameraView === 'bottom') applyCameraView(formula.cameraView); }, false);
+registerControl('backgroundColor', 'backgroundColor', 'color', v => v, () => applySceneLook(), false);
+registerControl('exposure', 'exposure', 'range', Number, () => applyPostLook(), false);
+registerControl('fogDensity', 'fogDensity', 'range', Number, () => applySceneLook(), false);
+registerControl('depthFade', 'depthFade', 'range', Number);
+registerControl('depthSatFade', 'depthSatFade', 'range', Number);
+registerControl('fiberOpacity', 'fiberOpacity', 'range', Number);
+registerControl('torusOpacity', 'torusOpacity', 'range', Number);
+registerControl('torusMetalness', 'torusMetalness', 'range', Number);
+registerControl('torusRoughness', 'torusRoughness', 'range', Number);
+registerControl('emissiveStrength', 'emissiveStrength', 'range', Number);
+registerControl('animate', 'animate', 'checkbox', v => v, null, false);
+registerControl('alphaSpeed', 'alphaSpeed', 'range', Number, null, false);
+registerControl('flowSpeed', 'flowSpeed', 'range', Number, null, false);
+registerControl('showParticles', 'showParticles', 'checkbox');
+registerControl('particleSize', 'particleSize', 'range', Number, null, false);
+registerControl('insideSizeShift', 'insideSizeShift', 'checkbox', v => v, on => {
+  document.getElementById('particleSizeInside').disabled = !on;
+}, false);
+registerControl('particleSizeInside', 'particleSizeInside', 'range', Number, null, false);
+registerControl('particleAlpha', 'particleAlpha', 'range', Number, null, false);
+registerControl('particleTrains', 'particleTrains', 'range', v => parseInt(v, 10));
+registerControl('particleTail', 'particleTail', 'range', v => parseInt(v, 10));
+registerControl('particleDepthFalloff', 'particleDepthFalloff', 'range', Number);
+registerControl('particleGate', 'particleGate', 'range', Number, null, false);
+registerControl('envIntensity', 'envIntensity', 'range', Number, () => applyEnvIntensity(), false);
+registerControl('sheenStrength', 'sheenStrength', 'range', Number);
+registerControl('sheenSharpness', 'sheenSharpness', 'range', Number);
+registerControl('bloomStrength', 'bloomStrength', 'range', Number, () => applyPostLook(), false);
+registerControl('bloomRadius', 'bloomRadius', 'range', Number, () => applyPostLook(), false);
+registerControl('bloomThreshold', 'bloomThreshold', 'range', Number, () => applyPostLook(), false);
+registerControl('bloomKnee', 'bloomKnee', 'range', Number, () => applyPostLook(), false);
+registerControl('bloomSpread', 'bloomSpread', 'range', Number, () => applyBloomResolution(), false);
+registerControl('vignette', 'vignette', 'range', Number, () => applyPostLook(), false);
+registerControl('sheenColor', 'sheenColor', 'color');
+registerControl('plusColor', 'plusColor', 'color');
+registerControl('minusColor', 'minusColor', 'color');
+registerControl('torusColor', 'torusColor', 'color');
+registerControl('emissiveColor', 'emissiveColor', 'color');
+registerControl('hideAllFibers', 'hideAllFibers', 'checkbox');
+registerControl('crossingLattice', 'crossingLattice', 'checkbox');
+registerControl('crossingMode', 'crossingMode', 'select');
+registerControl('crossingPoints', 'crossingPoints', 'checkbox');
+registerControl('crossingRootOnly', 'crossingRootOnly', 'checkbox');
+registerControl('crossingOpacity', 'crossingOpacity', 'range', Number, () => syncShapeUniforms(), false);
+registerControl('crossingColor', 'crossingColor', 'color', v => v, () => syncShapeUniforms(), false);
+registerControl('crossingNests', 'crossingNests', 'checkbox');
+registerControl('crossingJoinNests', 'crossingJoinNests', 'checkbox');
+registerControl('hideRootFibers', 'hideRootFibers', 'checkbox');
+registerControl('showTori', 'showTori', 'checkbox');
+registerControl('showRootTorus', 'showRootTorus', 'checkbox');
+registerControl('dofEnabled', 'dofEnabled', 'checkbox', v => v, null, false);
+registerControl('dofFocus', 'dofFocus', 'range', Number, null, false);
+registerControl('dofRange', 'dofRange', 'range', Number, null, false);
+registerControl('dofBlur', 'dofBlur', 'range', Number, null, false);
+
+function applyPreset(obj) {
+  for (const [key, cfg] of controlMap.entries()) {
+    if (!(key in obj)) continue;
+    const value = obj[key];
+    if (cfg.type === 'checkbox') cfg.input.checked = !!value;
+    else cfg.input.value = String(value);
+    cfg.sync(false);
+  }
+  applyCameraView(formula.cameraView || 'side');
+  rebuild();
+}
+
+function sanitizedPreset() {
+  const preset = {};
+  for (const key of Object.keys(defaults)) preset[key] = formula[key];
+  preset._schema = 'TOR-interstitial-A-v2';
+  return preset;
+}
+
+function exportPreset() {
+  const blob = new Blob([JSON.stringify(sanitizedPreset(), null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'TOR-preset.json';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 500);
+}
+
+async function copyPreset() {
+  const text = JSON.stringify(sanitizedPreset(), null, 2);
+  try {
+    await navigator.clipboard.writeText(text);
+    const status = document.getElementById('status');
+    status.textContent = 'Preset JSON copied to clipboard.\n\n' + status.textContent;
+  } catch {
+    alert('Clipboard copy failed. Use Export preset JSON instead.');
+  }
+}
+
+function importPresetFromFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      applyPreset(data);
+    } catch (err) {
+      alert('Could not parse preset JSON.');
+      console.error(err);
+    }
+  };
+  reader.readAsText(file);
+}
+
+document.getElementById('rebuild').addEventListener('click', rebuild);
+document.getElementById('snapSide').addEventListener('click', () => applyCameraView('side'));
+document.getElementById('snapTop').addEventListener('click', () => applyCameraView('top'));
+document.getElementById('snapBottom').addEventListener('click', () => applyCameraView('bottom'));
+document.getElementById('exportJson').addEventListener('click', exportPreset);
+document.getElementById('copyJson').addEventListener('click', copyPreset);
+document.getElementById('importJson').addEventListener('click', () => document.getElementById('hiddenFile').click());
+document.getElementById('hiddenFile').addEventListener('change', e => importPresetFromFile(e.target.files[0]));
+document.getElementById('resetPreset').addEventListener('click', () => applyPreset(defaults));
+
+const BASE_PARAMETER_ORDER_V1 = [
+  'm','levels','delta','aFill','holeRatio','profile','childHeight','bridge','nestedTori','nestedLevels',
+  'nestedShells','evenNodes','lodStrength','samples','nodeBudget','animate','alphaSpeed',
+  'flowSpeed','showParticles','particleSize','insideSizeShift','particleSizeInside',
+  'particleAlpha','particleTrains','particleTail','particleDepthFalloff','particleGate',
+  'hideAllFibers','hideRootFibers','showTori','showRootTorus','cameraView','cameraDistance',
+  'lockAtTopBottom','topBottomSnapEpsilon','backgroundColor','exposure','fogDensity',
+  'depthFade','depthSatFade','fiberOpacity','torusOpacity','torusMetalness',
+  'torusRoughness','emissiveStrength','envIntensity','sheenStrength','sheenSharpness',
+  'bloomStrength','bloomKnee','bloomSpread','bloomRadius','bloomThreshold','vignette',
+  'plusColor','minusColor','torusColor','emissiveColor','sheenColor',
+  'cameraX','cameraY','cameraZ','targetX','targetY','targetZ',
+  'cameraUpX','cameraUpY','cameraUpZ','cameraZoom','alphaPhase'
+];
+const PARAMETER_EXTENSION_ORDER = [
+  'crossingLattice', 'crossingPoints', 'crossingRootOnly', 'crossingOpacity', 'crossingColor',
+  'crossingMode', 'nestChirality', 'nestSpacing', 'nestFractalLevels', 'nestShellOpacity',
+  'nestParticles', 'nestColorMix', 'nestPlusColor', 'nestMinusColor', 'crossingNests', 'crossingJoinNests'
+];
+const PARAMETER_ORDER = [
+  ...BASE_PARAMETER_ORDER_V1,
+  ...PARAMETER_EXTENSION_ORDER,
+  ...Object.keys(defaults).filter(key =>
+    !BASE_PARAMETER_ORDER_V1.includes(key) && !PARAMETER_EXTENSION_ORDER.includes(key)
+  )
+];
+
+const parameterPreview = document.getElementById('parameterPreview');
+let editingForwardParameters = [];
+
+const roundCsvNumber = value => {
+  if (!Number.isFinite(value)) return '0';
+  return String(Math.round(value * 1e6) / 1e6);
+};
+
+function captureEditionValues() {
+  const values = {};
+  for (const key of Object.keys(defaults)) values[key] = formula[key];
+  values.cameraX = camera.position.x;
+  values.cameraY = camera.position.y;
+  values.cameraZ = camera.position.z;
+  values.targetX = controls.target.x;
+  values.targetY = controls.target.y;
+  values.targetZ = controls.target.z;
+  values.cameraUpX = camera.up.x;
+  values.cameraUpY = camera.up.y;
+  values.cameraUpZ = camera.up.z;
+  values.cameraZoom = camera.zoom;
+  values.alphaPhase = structureAlpha;
+  return values;
+}
+
+function valuesToCsv(values) {
+  return PARAMETER_ORDER.map(key => {
+    return csvToken(values[key]);
+  }).join(',');
+}
+
+function csvToken(value) {
+  if (typeof value === 'boolean') return value ? '1' : '0';
+  if (typeof value === 'number') return roundCsvNumber(value);
+  return String(value ?? '').replaceAll(',', '');
+}
+
+function captureEditionCsv() {
+  return valuesToCsv(captureEditionValues());
+}
+
+function captureCompatibleEdition() {
+  const forward = editingForwardParameters.filter(entry => !PARAMETER_ORDER.includes(entry.key));
+  return {
+    parameterOrder:[...PARAMETER_ORDER, ...forward.map(entry => entry.key)],
+    parameters:[captureEditionCsv(), ...forward.map(entry => entry.value)].join(',')
+  };
+}
+
+function updateParameterPreview() {
+  parameterPreview.textContent = captureCompatibleEdition().parameters;
+}
+
+function setPanelCollapsed(panel, collapsed) {
+  if (!panel) return;
+  panel.classList.toggle('is-collapsed', collapsed);
+  const toggle = panel.querySelector('.panel-toggle');
+  if (!toggle) return;
+  toggle.textContent = collapsed ? '+' : '−';
+  toggle.setAttribute('aria-expanded', String(!collapsed));
+  const panelName = panel.id === 'panel' ? 'parameter panel' : 'generator panel';
+  toggle.setAttribute('aria-label', `${collapsed ? 'Expand' : 'Minimize'} ${panelName}`);
+}
+
+document.querySelectorAll('.panel-toggle').forEach(toggle => {
+  toggle.addEventListener('click', () => {
+    const panel = toggle.closest('aside');
+    setPanelCollapsed(panel, !panel.classList.contains('is-collapsed'));
+  });
+});
+
+const STABILITY_ENDPOINT = 'https://api.stability.ai/v2beta/stable-image/control/structure';
+const BALANCE_ENDPOINT = 'https://api.stability.ai/v1/user/balance';
+const KEY_STORAGE = 'tortoise-stability-key';
+const PROMPT_STORAGE = 'tortoise-generator-prompt';
+
+const CAPTURE_MAX_SIDE = 1536;
+const MAX_ASPECT = 2.4;
+const HISTORY_LIMIT = 12;
+
+const apiKeyInput = document.getElementById('apiKey');
+const testKeyButton = document.getElementById('testKey');
+const balanceTag = document.getElementById('balanceTag');
+const controlPreview = document.getElementById('controlPreview');
+const controlMeta = document.getElementById('controlMeta');
+const captureButton = document.getElementById('captureView');
+const referenceModeInput = document.getElementById('referenceMode');
+const invertDepthInput = document.getElementById('invertDepth');
+const downloadControlButton = document.getElementById('downloadControl');
+const promptInput = document.getElementById('promptText');
+const negativePromptInput = document.getElementById('negativePrompt');
+const controlStrengthInput = document.getElementById('controlStrength');
+const stylePresetInput = document.getElementById('stylePreset');
+const outputFormatInput = document.getElementById('outputFormat');
+const seedInput = document.getElementById('seedValue');
+const generateButton = document.getElementById('generate');
+const generatorStatus = document.getElementById('generatorStatus');
+const resultPreview = document.getElementById('resultPreview');
+const downloadResultButton = document.getElementById('downloadResult');
+const openResultButton = document.getElementById('openResult');
+const historyStrip = document.getElementById('genHistory');
+
+let controlBlob = null;
+let controlUrl = '';
+let controlParameters = '';
+let controlMode = 'render';
+let activeResult = null;
+const history = [];
+
+function notify(message, kind = '') {
+  generatorStatus.textContent = message;
+  generatorStatus.classList.toggle('is-error', kind === 'error');
+  generatorStatus.classList.toggle('is-busy', kind === 'busy');
+}
+
+function slug(value) {
+  return String(value).toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48) || 'tortoise';
+}
+
+function stamp() {
+  const d = new Date();
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+}
+
+function saveBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+function showIn(frame, url, alt) {
+  frame.replaceChildren();
+  const image = new Image();
+  image.src = url;
+  image.alt = alt;
+  frame.appendChild(image);
+}
+
+function cropAndEncode(source, sourceWidth, sourceHeight) {
+  let sw = sourceWidth;
+  let sh = sourceHeight;
+  let sx = 0;
+  let sy = 0;
+  if (sw / sh > MAX_ASPECT) {
+    const cropped = Math.round(sh * MAX_ASPECT);
+    sx = Math.round((sw - cropped) / 2);
+    sw = cropped;
+  } else if (sh / sw > MAX_ASPECT) {
+    const cropped = Math.round(sw * MAX_ASPECT);
+    sy = Math.round((sh - cropped) / 2);
+    sh = cropped;
+  }
+  const scale = Math.min(1, CAPTURE_MAX_SIDE / Math.max(sw, sh));
+  const width = Math.max(64, Math.round(sw * scale));
+  const height = Math.max(64, Math.round(sh * scale));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  canvas.getContext('2d').drawImage(source, sx, sy, sw, sh, 0, 0, width, height);
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(blob => {
+      if (blob) resolve({ blob, width, height });
+      else reject(new Error('The browser could not encode the capture.'));
+    }, 'image/png');
+  });
+}
+
+function captureRenderedView() {
+  composer.render();
+  const source = renderer.domElement;
+  if (!source.width || !source.height) throw new Error('The renderer has no frame to capture yet.');
+  return cropAndEncode(source, source.width, source.height);
+}
+
+const DEPTH_MAX_SIDE = 2048;
+let depthTarget = null;
+let linearTarget = null;
+let depthQuad = null;
+let depthScene = null;
+let depthCamera = null;
+
+function buildDepthResources(width, height) {
+  const options = {
+    minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter,
+    format: THREE.RGBAFormat, type: THREE.UnsignedByteType,
+    depthBuffer: true, stencilBuffer: false
+  };
+  depthTarget = new THREE.WebGLRenderTarget(width, height, options);
+  depthTarget.depthTexture = new THREE.DepthTexture(width, height);
+  depthTarget.depthTexture.format = THREE.DepthFormat;
+  depthTarget.depthTexture.type = THREE.UnsignedIntType;
+
+  linearTarget = new THREE.WebGLRenderTarget(width, height,
+    { ...options, depthBuffer: false });
+
+  if (!depthQuad) {
+    const material = new THREE.ShaderMaterial({
+      uniforms: { tDepth: { value: null }, cameraNear: { value: 0.1 }, cameraFar: { value: 100 } },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`,
+      fragmentShader: `
+        precision highp float;
+        varying vec2 vUv;
+        uniform sampler2D tDepth;
+        uniform float cameraNear;
+        uniform float cameraFar;
+        void main() {
+          float d = texture2D(tDepth, vUv).x;
+          float linear01 = 1.0;
+          if (d < 1.0) {
+            float viewZ = (cameraNear * cameraFar) / ((cameraFar - cameraNear) * d - cameraFar);
+            linear01 = clamp((-viewZ - cameraNear) / (cameraFar - cameraNear), 0.0, 1.0);
+          }
+          float s = linear01 * 16777215.0;
+          gl_FragColor = vec4(
+            floor(s / 65536.0) / 255.0,
+            floor(mod(s, 65536.0) / 256.0) / 255.0,
+            floor(mod(s, 256.0)) / 255.0,
+            1.0);
+        }`,
+      depthTest: false,
+      depthWrite: false
+    });
+    depthQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
+    depthQuad.frustumCulled = false;
+    depthScene = new THREE.Scene();
+    depthScene.add(depthQuad);
+    depthCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  }
+}
+
+function ensureDepthResources(width, height) {
+  if (depthTarget && depthTarget.width === width && depthTarget.height === height) return;
+  if (depthTarget) {
+    depthTarget.depthTexture.dispose();
+    depthTarget.dispose();
+    linearTarget.dispose();
+  }
+  buildDepthResources(width, height);
+}
+
+function withSolidDepth(action) {
+  const restore = [];
+  scene.traverse(object => {
+    if (!object.material) return;
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    if (materials.some(m => m.blending === THREE.AdditiveBlending)) {
+      const wasVisible = object.visible;
+      restore.push(() => { object.visible = wasVisible; });
+      object.visible = false;
+      return;
+    }
+    for (const material of materials) {
+      if (material.depthWrite) continue;
+      restore.push(() => { material.depthWrite = false; });
+      material.depthWrite = true;
+    }
+  });
+  try {
+    return action();
+  } finally {
+    for (const undo of restore) undo();
+  }
+}
+
+function renderDepthPixels() {
+  const source = renderer.domElement;
+  if (!source.width || !source.height) throw new Error('The renderer has no frame to capture yet.');
+  const scale = Math.min(1, DEPTH_MAX_SIDE / Math.max(source.width, source.height));
+  const width = Math.max(2, Math.round(source.width * scale));
+  const height = Math.max(2, Math.round(source.height * scale));
+  ensureDepthResources(width, height);
+
+  const previousTarget = renderer.getRenderTarget();
+  withSolidDepth(() => {
+    renderer.setRenderTarget(depthTarget);
+    renderer.clear(true, true, true);
+    renderer.render(scene, camera);
+  });
+
+  depthQuad.material.uniforms.tDepth.value = depthTarget.depthTexture;
+  depthQuad.material.uniforms.cameraNear.value = camera.near;
+  depthQuad.material.uniforms.cameraFar.value = camera.far;
+  renderer.setRenderTarget(linearTarget);
+  renderer.render(depthScene, depthCamera);
+
+  const pixels = new Uint8Array(width * height * 4);
+  renderer.readRenderTargetPixels(linearTarget, 0, 0, width, height, pixels);
+  renderer.setRenderTarget(previousTarget);
+  return { pixels, width, height };
+}
+
+function depthPixelsToCanvas({ pixels, width, height }, invert) {
+  const count = width * height;
+  const depth = new Float32Array(count);
+  let min = Infinity;
+  let max = -Infinity;
+  for (let i = 0; i < count; i++) {
+    const o = i * 4;
+    const value = (pixels[o] * 65536 + pixels[o + 1] * 256 + pixels[o + 2]) / 16777215;
+    depth[i] = value;
+    if (value < 0.999999) {
+      if (value < min) min = value;
+      if (value > max) max = value;
+    }
+  }
+  if (!Number.isFinite(min)) { min = 0; max = 1; }
+  const span = Math.max(1e-6, max - min);
+  const backgroundLevel = invert ? 255 : 0;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext('2d');
+  const image = context.createImageData(width, height);
+  for (let y = 0; y < height; y++) {
+    const sourceRow = (height - 1 - y) * width;
+    const targetRow = y * width;
+    for (let x = 0; x < width; x++) {
+      const value = depth[sourceRow + x];
+      let level;
+      if (value >= 0.999999) {
+        level = backgroundLevel;
+      } else {
+        const near = 1 - (value - min) / span;
+        level = Math.round(Math.min(1, Math.max(0, invert ? 1 - near : near)) * 255);
+      }
+      const o = (targetRow + x) * 4;
+      image.data[o] = level;
+      image.data[o + 1] = level;
+      image.data[o + 2] = level;
+      image.data[o + 3] = 255;
+    }
+  }
+  context.putImageData(image, 0, 0);
+  return canvas;
+}
+
+function captureDepthPass(invert) {
+  const raw = renderDepthPixels();
+  return cropAndEncode(depthPixelsToCanvas(raw, invert), raw.width, raw.height);
+}
+
+async function captureView() {
+  try {
+    const mode = referenceModeInput.value;
+    const { blob, width, height } = mode === 'depth'
+      ? await captureDepthPass(invertDepthInput.checked)
+      : await captureRenderedView();
+    if (controlUrl) URL.revokeObjectURL(controlUrl);
+    controlBlob = blob;
+    controlUrl = URL.createObjectURL(blob);
+    controlParameters = captureCompatibleEdition().parameters;
+    controlMode = mode;
+    showIn(controlPreview, controlUrl, mode === 'depth' ? 'Captured depth pass' : 'Captured structure reference');
+    const label = mode === 'depth' ? `depth pass${invertDepthInput.checked ? ', inverted' : ''}` : 'rendered view';
+    controlMeta.textContent = `${label} · ${width} × ${height} px · ${(blob.size / 1024).toFixed(0)} KB · ${new Date().toLocaleTimeString()}`;
+    downloadControlButton.disabled = false;
+    syncGenerateButton();
+    notify(mode === 'depth'
+      ? 'Depth pass ready. Geometry read straight from the scene, not estimated from the image.'
+      : 'Structure reference ready.');
+  } catch (error) {
+    console.error(error);
+    notify(error.message, 'error');
+  }
+}
+
+function readKey() {
+  return apiKeyInput.value.trim();
+}
+
+function describeNetworkFailure(error) {
+  if (error instanceof TypeError) {
+    return 'Could not reach api.stability.ai. Check the connection, and if this page is open from a file:// path, serve the folder over http://localhost instead.';
+  }
+  return error.message;
+}
+
+async function stabilityError(response) {
+  let detail = `HTTP ${response.status}`;
+  try {
+    const body = await response.json();
+    if (Array.isArray(body.errors) && body.errors.length) detail = body.errors.join(' · ');
+    else if (body.message) detail = body.message;
+    else if (body.name) detail = body.name;
+  } catch {  }
+  if (response.status === 401 || response.status === 403) return `${detail} — check the API key.`;
+  if (response.status === 429) return `${detail} — rate limited, wait a moment.`;
+  return detail;
+}
+
+async function testKey() {
+  const key = readKey();
+  if (!key) {
+    notify('Paste your Stability API key first.', 'error');
+    return;
+  }
+  testKeyButton.disabled = true;
+  notify('Checking the key…', 'busy');
+  try {
+    const response = await fetch(BALANCE_ENDPOINT, { headers: { Authorization: `Bearer ${key}` } });
+    if (!response.ok) throw new Error(await stabilityError(response));
+    const credits = Number((await response.json()).credits) || 0;
+    balanceTag.textContent = `${Math.round(credits)} credits`;
+    notify(`Key accepted. ${Math.round(credits)} credits available, about ${Math.floor(credits / 3)} generations.`);
+    localStorage.setItem(KEY_STORAGE, key);
+  } catch (error) {
+    console.error(error);
+    balanceTag.textContent = '';
+    notify(describeNetworkFailure(error), 'error');
+  } finally {
+    testKeyButton.disabled = false;
+  }
+}
+
+async function generate() {
+  const key = readKey();
+  if (!key) return notify('Paste your Stability API key first.', 'error');
+  if (!controlBlob) return notify('Capture the view before generating.', 'error');
+  const prompt = promptInput.value.trim();
+  if (!prompt) return notify('Write a prompt describing what to render.', 'error');
+
+  const format = outputFormatInput.value;
+  const form = new FormData();
+  form.append('image', controlBlob, 'structure.png');
+  form.append('prompt', prompt);
+  form.append('control_strength', controlStrengthInput.value);
+  form.append('output_format', format);
+  const negative = negativePromptInput.value.trim();
+  if (negative) form.append('negative_prompt', negative);
+  if (stylePresetInput.value) form.append('style_preset', stylePresetInput.value);
+  const seed = Number(seedInput.value) || 0;
+  if (seed > 0) form.append('seed', String(seed));
+
+  generateButton.disabled = true;
+  notify('Generating…', 'busy');
+  const started = performance.now();
+
+  try {
+    const response = await fetch(STABILITY_ENDPOINT, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, Accept: 'image/*' },
+      body: form
+    });
+    if (!response.ok) throw new Error(await stabilityError(response));
+
+    const finishReason = response.headers.get('finish-reason');
+    const usedSeed = response.headers.get('seed');
+    const blob = await response.blob();
+
+    if (finishReason === 'CONTENT_FILTERED') {
+      notify('Stability filtered this result, so the image came back blurred. Adjust the prompt and try again.', 'error');
+    }
+
+    addResult(blob, format, usedSeed, prompt);
+    localStorage.setItem(KEY_STORAGE, key);
+    localStorage.setItem(PROMPT_STORAGE, prompt);
+
+    const seconds = ((performance.now() - started) / 1000).toFixed(1);
+    if (finishReason !== 'CONTENT_FILTERED') {
+      notify(`Done in ${seconds}s${usedSeed ? ` · seed ${usedSeed}` : ''}. 3 credits spent.`);
+    }
+    refreshBalance(key);
+  } catch (error) {
+    console.error(error);
+    notify(describeNetworkFailure(error), 'error');
+  } finally {
+    generateButton.disabled = false;
+  }
+}
+
+async function refreshBalance(key) {
+  try {
+    const response = await fetch(BALANCE_ENDPOINT, { headers: { Authorization: `Bearer ${key}` } });
+    if (!response.ok) return;
+    const credits = Number((await response.json()).credits) || 0;
+    balanceTag.textContent = `${Math.round(credits)} credits`;
+  } catch {  }
+}
+
+function addResult(blob, format, usedSeed, prompt) {
+  const entry = {
+    blob,
+    format,
+    seed: usedSeed,
+    prompt,
+    parameters: controlParameters,
+    reference: controlMode,
+    url: URL.createObjectURL(blob),
+    name: `tortoise-${slug(prompt)}-${stamp()}.${format}`
+  };
+  history.unshift(entry);
+  while (history.length > HISTORY_LIMIT) {
+    const dropped = history.pop();
+    if (dropped !== activeResult) URL.revokeObjectURL(dropped.url);
+  }
+  showResult(entry);
+  renderHistory();
+}
+
+function showResult(entry) {
+  activeResult = entry;
+  showIn(resultPreview, entry.url, entry.prompt);
+  resultPreview.querySelector('img').addEventListener('click', () => window.open(entry.url, '_blank'));
+  downloadResultButton.disabled = false;
+  openResultButton.disabled = false;
+  renderHistory();
+}
+
+function renderHistory() {
+  historyStrip.replaceChildren();
+  if (!history.length) {
+    const note = document.createElement('div');
+    note.className = 'field-note';
+    note.textContent = 'Generations from this session appear here.';
+    historyStrip.appendChild(note);
+    return;
+  }
+  for (const entry of history) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'gen-item' + (entry === activeResult ? ' is-active' : '');
+    button.title = entry.prompt;
+    const image = new Image();
+    image.src = entry.url;
+    image.alt = entry.prompt;
+    button.appendChild(image);
+    button.addEventListener('click', () => showResult(entry));
+    historyStrip.appendChild(button);
+  }
+}
+
+function downloadResult() {
+  if (!activeResult) return;
+  saveBlob(activeResult.blob, activeResult.name);
+  const sidecar = [
+    `prompt: ${activeResult.prompt}`,
+    `negative_prompt: ${negativePromptInput.value.trim() || '(none)'}`,
+    `control_strength: ${controlStrengthInput.value}`,
+    `style_preset: ${stylePresetInput.value || '(none)'}`,
+    `seed: ${activeResult.seed || '(random)'}`,
+    `reference: ${activeResult.reference === 'depth' ? 'scene depth pass' : 'rendered view'}`,
+    `engine: stability control/structure`,
+    ``,
+    `tortoise parameters:`,
+    activeResult.parameters
+  ].join('\n');
+  saveBlob(new Blob([sidecar], { type: 'text/plain' }), activeResult.name.replace(/\.\w+$/, '.txt'));
+}
+
+function syncGenerateButton() {
+  generateButton.disabled = !controlBlob;
+}
+
+captureButton.addEventListener('click', captureView);
+downloadControlButton.addEventListener('click', () => {
+  if (controlBlob) saveBlob(controlBlob, `tortoise-${controlMode === 'depth' ? 'depth' : 'structure'}-${stamp()}.png`);
+});
+testKeyButton.addEventListener('click', testKey);
+generateButton.addEventListener('click', generate);
+downloadResultButton.addEventListener('click', downloadResult);
+openResultButton.addEventListener('click', () => {
+  if (activeResult) window.open(activeResult.url, '_blank');
+});
+apiKeyInput.addEventListener('change', () => {
+  const key = readKey();
+  if (key) localStorage.setItem(KEY_STORAGE, key);
+  else localStorage.removeItem(KEY_STORAGE);
+  balanceTag.textContent = '';
+});
+promptInput.addEventListener('input', syncGenerateButton);
+document.getElementById('keyHelpToggle').addEventListener('click', event => {
+  const open = document.getElementById('keyHelp').classList.toggle('open');
+  event.currentTarget.setAttribute('aria-expanded', String(open));
+});
+referenceModeInput.addEventListener('change', () => {
+  invertDepthInput.disabled = referenceModeInput.value !== 'depth';
+  notify(referenceModeInput.value === 'depth'
+    ? 'Depth mode. Capture again to refresh the reference.'
+    : 'Rendered view mode. Capture again to refresh the reference.');
+});
+invertDepthInput.addEventListener('change', () => notify('Capture again to apply the change.'));
+invertDepthInput.disabled = referenceModeInput.value !== 'depth';
+
+document.getElementById('panel').addEventListener('input', updateParameterPreview);
+document.getElementById('panel').addEventListener('change', updateParameterPreview);
+controls.addEventListener('change', updateParameterPreview);
+
+for (const input of document.querySelectorAll('#metaPanel .row input, #metaPanel .row select')) {
+  const readout = input.parentElement.querySelector('output');
+  if (!readout) continue;
+  const sync = () => { readout.textContent = input.type === 'checkbox' ? (input.checked ? 'on' : 'off') : input.value; };
+  input.addEventListener('input', sync);
+  sync();
+}
+
+apiKeyInput.value = localStorage.getItem(KEY_STORAGE) || '';
+promptInput.value = localStorage.getItem(PROMPT_STORAGE) || '';
+
+applyPreset(defaults);
+updateParameterPreview();
+syncGenerateButton();
+renderHistory();
+notify(apiKeyInput.value ? 'Key loaded from this browser. Capture a view to begin.' : 'Add your Stability API key to begin.');
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  const now = performance.now() / 1000;
+  const dt = Math.min(0.05, Math.max(0, now - lastFrame));
+  lastFrame = now;
+
+  if (formula.animate) {
+    animClock += dt;
+    structureAlpha = (structureAlpha + dt * formula.alphaSpeed) % (TAU / loopChirality());
+    structureDirty = true;
+  }
+  if (structureDirty) {
+    stepStructure(structureAlpha);
+    syncGPU();
+    for (const tree of nestTrees) withTree(tree, () => { stepStructure(structureAlpha); syncGPU(); });
+    if (structureBoundsDirty) {
+      measureSceneRadius();
+      structureBoundsDirty = false;
+    }
+    structureDirty = false;
+  }
+  setAnimationUniforms(animClock, structureAlpha);
+  for (const tree of nestTrees) withTree(tree, () => setAnimationUniforms(animClock, structureAlpha));
+  updateNestSpokes();
+  updateE8Polytope();
+
+  controls.update();
+  maybeSnapAndLockPole();
+  updateCameraClipping();
+
+  dofPass.enabled = !!formula.dofEnabled;
+  if (dofPass.enabled) renderDepthOfField();
+
+  composer.render();
+}
+animate();
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  composer.setSize(innerWidth, innerHeight);
+  applyBloomResolution();
+  requestRender();
+});
+</script>
+</body>
+</html>

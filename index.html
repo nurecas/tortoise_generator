@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Tortoise Generator · Phenomenology</title>
-  <meta name="description" content="Shape the Tortoise fractal torus in your browser and repaint it with Stability AI, keeping its geometry as a structure reference. Open source.">
+  <title>Tortoise Generator</title>
+  <meta name="description" content="Shape the Tortoise fractal torus in your browser, see it as bodies in Phenomenology, and repaint it with Stability AI, keeping its geometry as a structure reference. Open source.">
   <style>
     :root { color-scheme: dark; accent-color: #d4a329; }
     * { box-sizing: border-box; }
@@ -95,10 +95,6 @@
       background:rgba(255,218,112,.06); border-color:rgba(245,204,84,.2);
     }
     .panel-toggle:hover, .panel-toggle:focus-visible { background:rgba(218,166,38,.2); outline:2px solid rgba(244,205,99,.2); outline-offset:2px; }
-    /* Both panels are taller than a laptop screen once every section is open. They already
-       scrolled, but macOS hides overlay scrollbars until you scroll, so a cut-off panel
-       gave no sign there was more below. A thin always-present track says so. Overscroll
-       is contained so reaching the end of a panel never hands the wheel to the orbit. */
     #panel, #metaPanel {
       overflow-y:auto; overflow-x:hidden; overscroll-behavior:contain;
       scrollbar-width:thin; scrollbar-color:rgba(232,190,79,.45) transparent;
@@ -163,7 +159,6 @@
       body > canvas { position:fixed; inset:0; z-index:0; }
       #panel, #metaPanel { z-index:10; }
     }
-    /* ---- generator additions ---- */
     .key-row { display:grid; grid-template-columns:1fr auto; gap:7px; }
     .key-row button { width:auto; padding:8px 12px; white-space:nowrap; }
     #generatorStatus { min-height:32px; margin:10px 0 2px; color:#b9a777; font:10px/1.55 ui-monospace,monospace; white-space:pre-wrap; }
@@ -191,7 +186,6 @@
     #keyHelp ol { margin:4px 0 6px 18px; padding:0; }
     #keyHelp a, .repo-link a { color:#f4cd63; }
     .repo-link { margin:14px 0 4px; font:10px/1.6 ui-monospace,monospace; color:#b8954f; letter-spacing:.04em; }
-    /* ---- phenomenology ---- */
     .pheno-section { border-color:rgba(244,205,99,.34); background:linear-gradient(160deg,rgba(255,214,100,.06),rgba(255,214,100,.015)); }
     .pheno-section h2 { letter-spacing:.04em; }
     .pheno-note { font-size:10.5px; line-height:1.5; color:#bfae7e; margin:2px 0 6px; min-height:31px; font-style:italic; }
@@ -202,7 +196,6 @@
     body.pheno .checks[data-pheno="off"] { display:none; }
     body.pheno #legend { display:none; }
 
-    /* light theme: paper, white, greys and a flesh accent */
     body.pheno { color-scheme:light; accent-color:#b88b76; background:#eeebe6; color:#2f2a27; }
     body.pheno #panel, body.pheno #metaPanel {
       background:rgba(250,248,245,.94); border-color:rgba(70,58,50,.13);
@@ -253,7 +246,7 @@
       opacity:1 !important;
       background:radial-gradient(ellipse 82% 76% at 50% 46%, rgba(0,0,0,0) 52%, rgba(120,104,92,.08) 82%, rgba(96,82,72,.2) 100%);
     }
-  </style>
+</style>
   <script type="importmap">
   {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/"}}
   </script>
@@ -266,7 +259,7 @@
     </div>
     <div class="panel-content" id="parameterPanelContent">
     <div class="sub">Shape the toroidal artwork, orbit to the precise viewing angle, then describe the symbol it reveals. Structural controls commit on release to keep the recursive system stable.</div>
-    
+
     <details>
       <summary>Equation</summary>
       <div class="eq">P(u,v)=(cos u,sin u,cos v)/(√2−sin v)
@@ -604,8 +597,6 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 
-// Structure, budgets and camera come from the shipped TOR-preset.json.
-// The palette, exposure and the gold-shading block are authored here.
 const defaults = {
   dofEnabled: false,
   dofFocus: 1,
@@ -713,9 +704,6 @@ const camera = new THREE.PerspectiveCamera(48, innerWidth / innerHeight, 0.01, 3
 camera.up.set(0, 1, 0);
 camera.position.set(8.5, 0, 0);
 
-// antialias:false is deliberate. Once EffectComposer is in the chain the default
-// framebuffer only ever receives OutputPass's fullscreen quad, so multisampling it
-// buys nothing — the MSAA that matters belongs on the composer's own buffer below.
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance', stencil: false, preserveDrawingBuffer: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
@@ -727,21 +715,15 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.055;
 controls.target.set(0, 0, 0);
-// Full sphere: the piece's axis is Z while OrbitControls orbits about camera.up = Y,
-// so the underside is reached by swinging the azimuth 180 degrees. Nothing may clamp
-// either angle, and the pole lock must never latch rotation off.
 controls.minPolarAngle = 0;
 controls.maxPolarAngle = Math.PI;
 controls.minAzimuthAngle = -Infinity;
 controls.maxAzimuthAngle = Infinity;
 
-// Nothing in the scene animates, so a frame is only worth drawing when something
-// actually changed. Anything that alters the image calls requestRender().
 let renderPending = true;
 function requestRender() { renderPending = true; }
 controls.addEventListener('change', requestRender);
 
-// Direct lights stay soft — the gold studio environment below does most of the work.
 const hemiLight = new THREE.HemisphereLight(0xffe7a8, 0x160b02, 0.55);
 scene.add(hemiLight);
 const key = new THREE.DirectionalLight(0xfff1bd, 1.5);
@@ -754,8 +736,6 @@ const paleRim = new THREE.PointLight(0xffdf8b, 8, 22, 2);
 paleRim.position.set(3, -5, -2);
 scene.add(paleRim);
 
-// A procedural gold studio: warm horizon band plus a few soft light cards.
-// Metal renders black without something to reflect — this is what makes the gold read as gold.
 function buildGoldEnvironment() {
   const w = 1024, h = 512;
   const canvas = document.createElement('canvas');
@@ -806,25 +786,12 @@ function buildGoldEnvironment() {
 const goldEnvironment = buildGoldEnvironment();
 scene.environment = goldEnvironment;
 
-// EffectComposer's default buffer has no `samples`, which would leave the fibers
-// completely unantialiased. Hand it an explicit 4x multisampled target instead;
-// the composer clones it for its second buffer and copy() carries `samples` over.
 const composerTarget = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 });
 const composer = new EffectComposer(renderer, composerTarget);
 composer.setSize(innerWidth, innerHeight);
 composer.addPass(new RenderPass(scene, camera));
 
-// Depth of field.
-//
-// three's BokehPass assigns scene.overrideMaterial = MeshDepthMaterial, which would
-// discard the fibers' own vertex shaders and the tori's instanceMatrix and so blur
-// against geometry this artwork does not have. Depth therefore comes from a real
-// render of the real scene into an attached DepthTexture, the same route the
-// structure capture uses.
-//
-// The pass sits before bloom so that defocused highlights bloom, which is the order
-// a lens and a sensor actually apply them in.
-const DOF_DEPTH_SCALE = 0.5;   // CoC does not need full resolution; this halves the prepass fill cost
+const DOF_DEPTH_SCALE = 0.5;
 let dofDepthTarget = null;
 
 const dofPass = new ShaderPass({
@@ -838,10 +805,10 @@ const dofPass = new ShaderPass({
     focusRange: { value: 1 },
     maxBlur: { value: 6 }
   },
-  vertexShader: /* glsl */`
+  vertexShader: `
     varying vec2 vUv;
     void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-  fragmentShader: /* glsl */`
+  fragmentShader: `
     precision highp float;
     varying vec2 vUv;
     uniform sampler2D tDiffuse;
@@ -866,7 +833,6 @@ const dofPass = new ShaderPass({
     void main() {
       float z = viewDepth(vUv);
       float centre = circleOfConfusion(z) * maxBlur;
-      // most of a well-focused frame exits here, which is what keeps the pass affordable
       if (centre < 0.75) { gl_FragColor = texture2D(tDiffuse, vUv); return; }
 
       const int TAPS = 28;
@@ -880,7 +846,6 @@ const dofPass = new ShaderPass({
         vec2 uv = vUv + vec2(cos(angle), sin(angle)) * radius / resolution;
         float sz = viewDepth(uv);
         float sc = circleOfConfusion(sz) * maxBlur;
-        // a sharp sample in front must not smear across a blurred background
         float w = (sz > z || sc >= radius) ? 1.0 : 0.0;
         sum += texture2D(tDiffuse, uv) * w;
         weight += w;
@@ -940,11 +905,6 @@ const bloomPass = new UnrealBloomPass(
 composer.addPass(bloomPass);
 composer.addPass(new OutputPass());
 
-// The bloom halo is a fixed size in *pixels*, but the fit logic pulls the camera back on
-// narrow screens, so the artwork itself renders far smaller there — same halo, smaller
-// subject, and the glow swamps the piece on a phone. Pinning the bloom chain's limiting
-// dimension to a reference makes the halo a constant fraction of the artwork instead of
-// of the framebuffer, which is what keeps the look identical across devices.
 const BLOOM_REFERENCE = 1700;
 const bloomBuffer = new THREE.Vector2();
 
@@ -961,7 +921,6 @@ function applyBloomResolution() {
 let generated = new THREE.Group();
 scene.add(generated);
 
-
 const TAU = Math.PI * 2;
 const SQRT2 = Math.SQRT2;
 const R0 = 1 + SQRT2;
@@ -976,8 +935,6 @@ function clearPoleLock() {
 }
 
 function lockCurrentPole(name) {
-  // Snap to the pole but keep rotation live — latching enableRotate off here is what
-  // trapped the camera at the top and made the underside unreachable.
   poleLockState = name;
 }
 
@@ -1023,54 +980,13 @@ function maybeSnapAndLockPole() {
   else if (bottomAngle <= eps) applyCameraView('bottom');
 }
 
-// INNER HOLE. The constant in the denominator of P is the torus's major/minor ratio: the
-// projected surface has major radius C/(C^2-1) and minor 1/(C^2-1). C = sqrt2 is the
-// Clifford torus this piece was built on. Driving C toward 1 equalises the two radii and
-// closes the hole entirely — a horn torus. Larger C opens the hole wider and wider.
-//
-// Left raw, the outer radius 1/(C-1) would blow up as C falls, so everything is scaled by
-// R0*(C-1). That pins the outer radius at R0 for every C: the piece morphs without
-// changing size on screen, and R0 stays valid as the support bound and scene radius.
-/* ==================================================================
- * SHAPE MODEL
- *
- * For fixed u, P(u,v) traces the tube's meridian in the (r,z) half-plane. Solving it out,
- * that curve is an ELLIPSE — not a circle:
- *     ring R_c = C*geom/(C^2-1),  radial semi-axis a_r = geom/(C^2-1),  axial a_z = geom/sqrt(C^2-1)
- * so the tube's aspect a_z/a_r is sqrt(C^2-1), and it is circular ONLY at C = sqrt2.
- * (Verified against the raw parametrisation to 1e-15.)
- *
- * That single fact caused both old bugs: one control could never move the hole without also
- * moving the height, and a circular-section TorusGeometry carrier could never line up with
- * the fiber surface anywhere except C = sqrt2.
- *
- * So the exposed controls are the two things actually worth naming, and the awkward
- * quantities are derived from them:
- *
- *   holeRatio h = hole / outer radius        ->  C = (1+h)/(1-h)
- *   profile   p = absolute axial half-height ->  Z scale H = p / a_z(raw)
- *
- * With geom = R0*(C-1) the outer radius is pinned at R0 for every setting, so the piece
- * morphs without changing size on screen, and R0 stays valid as the support bound. Then:
- *
- *   outer      = R0                    ring R_c = R0*(1+h)/2
- *   hole       = R0*h                  a_r      = R0*(1-h)/2
- *   halfHeight = p                     sqrt(C^2-1) = 2*sqrt(h)/(1-h)
- *
- * h = 0.171573, p = 1 gives C = sqrt2 exactly, i.e. the original piece untouched.
- *   donut h.17 p1  |  horn torus h.02 p1  |  egg h.02 p1.9  |  lens h.06 p0.3  |  ring h.75 p1
- * ================================================================== */
-// A nest can be thinner than the slider allows the main torus to be, so its ceiling is lifted.
 let holeCeiling = 0.9;
 const holeH     = () => Math.min(holeCeiling, Math.max(0.005, formula.holeRatio));
 const shapeC    = () => { const h = holeH(); return (1 + h) / (1 - h); };
 const shapeGeom = () => R0 * (shapeC() - 1);
-// sqrt(C^2-1): the tube aspect the parametrisation gives before the profile scale
 const shapeK    = () => { const h = holeH(); return 2 * Math.sqrt(h) / (1 - h); };
 const ringR     = () => R0 * (1 + holeH()) / 2;
 const radialA   = () => R0 * (1 - holeH()) / 2;
-// Profile is intentionally absolute rather than a radial aspect. This is what makes the
-// centre-hole control alter only the plan view: changing h can no longer change height.
 const rawAxialA = () => radialA() * shapeK();
 const axialA    = () => Math.max(0.01, formula.profile);
 const childAxialA = () => Math.max(0.01, rawAxialA() * formula.childHeight);
@@ -1080,8 +996,6 @@ function P(u, v, out = new THREE.Vector3()) {
   return out.set(Math.cos(u) * s, Math.sin(u) * s, Math.cos(v) * s);
 }
 
-// Pu and Pv only ever feed a normalised tangent frame, so the common shapeGeom factor is
-// omitted from both — it cancels under normalize().
 function Pu(u, v, out = new THREE.Vector3()) {
   const D = shapeC() - Math.sin(v);
   return out.set(-Math.sin(u) / D, Math.cos(u) / D, 0);
@@ -1099,11 +1013,9 @@ function Pv(u, v, out = new THREE.Vector3()) {
   );
 }
 
-
 function phaseAtDepth(depth) {
   return { plus: depth * formula.delta, minus: -depth * formula.delta };
 }
-
 
 function hexToColor(hex) {
   return new THREE.Color(hex);
@@ -1148,52 +1060,14 @@ function requestedNodes() {
   return total;
 }
 
-/* ==================================================================
- * ANIMATED STRUCTURE
- *
- * Rotation about the local z axis is exactly a phase shift on this
- * parametrisation: R_z(alpha) P(u,v) = P(u+alpha, v), because D = sqrt2 - sin v
- * carries no u and z = cos v / D is untouched. So counter-rotating the two
- * chirality families — AM's whole toroid animation — costs one addition:
- *     a_k -> a_k + alpha(t)      b_l -> b_l - alpha(t)
- *
- * The catch, and the reason this file rebuilds the tree every frame: that
- * substitution leaves the interstitial site angle u = (a+b)/2 + q*pi INVARIANT
- * but sends v = (b-a)/2 + q*pi to v - alpha. The crossing points slide along a
- * meridian instead of rotating, so the gaps, the child scales and the child
- * frames all genuinely move. Animating the fibers while freezing the tree would
- * detach every child from the gap it is supposed to sit in.
- *
- * The counter-rotation is also about each node's OWN local z, not a global
- * axis, so it can never be an object transform — it has to reach the shader as
- * a phase, applied before the node's rigid transform.
- *
- * The whole attractor is exactly periodic in alpha with period TAU/m (relabel
- * k -> k+1, l -> l-1), so the motion loops seamlessly.
- * ================================================================== */
-
-// Fixed world-space key direction for the baked anisotropic strand highlight.
 const SHEEN_DIR = new THREE.Vector3(0.52, 0.66, 0.54).normalize();
 
-// BRIDGE. The tube's inner wall is the central bridge, and for any torus of revolution it is
-// an hourglass whose flare equals the tube's radial semi-axis exactly:
-//     r_in(u) = R_c - a_r*sqrt(1-u^2),   u = z / a_z
-// Straightening it means reshaping that wall, not removing it. Shifting every point inward by
-// lambda*a_r*t(u) with t(u) = 1 - sqrt(1-u^2) cancels the curvature term outright, so at
-// lambda = 1 the bridge is a true cylinder of exactly the waist radius, and at 0 it is the
-// untouched hourglass. Past 1 it pinches inward at the poles.
-//
-// The sqrt is floored at EPS so dt/du stays bounded (7.07 rather than infinite at the poles) —
-// without that the warp Jacobian blows up and the carrier tori's normals go with it.
-// One shared uniform object, so a single write reaches every material that reads it.
 const bridgeUniform = { value: 0 };
 let profileZUniform = { value: 1 };
 const childProfileZUniform = { value: 1 };
 let childAxialUniform = { value: 1 };
 let bridgeRadialUniform = { value: 1 };
 let bridgeAxialUniform = { value: 1 };
-// Carrier geometry is normalized by R0 before its instance transform, so its local bridge
-// dimensions use normalized units. Fibers/particles remain in full local Tortoise units.
 let carrierBridgeRadialUniform = { value: 1 / R0 };
 let carrierBridgeAxialUniform = { value: 1 / R0 };
 let childCarrierBridgeAxialUniform = { value: 1 / R0 };
@@ -1211,10 +1085,6 @@ let childCarrierDeformation = {
   profileZ: carrierProfileZUniform
 };
 
-// Depth LOD. 98.6% of the nodes are the deepest level, and at the default framing they
-// project to a median of ~5px across — a full 16x88 torus and 72-sample fibers there cost
-// 14.8M triangles and 9M line vertices a frame, essentially all of it sub-pixel. Detail is
-// interpolated toward the deep values by lodStrength, so 0 restores uniform full detail.
 function lodMix(full, lean, depth) {
   if (depth <= 0) return full;
   const t = Math.min(1, formula.lodStrength) * Math.min(1, depth / Math.max(1, formula.levels));
@@ -1224,13 +1094,8 @@ const torusRadialAt  = d => lodMix(16, 6, d);
 const torusTubularAt = d => lodMix(88, 16, d);
 const fiberSamplesAt = d => lodMix(formula.samples, Math.max(8, Math.round(formula.samples / 6)), d);
 
-// Node count alone cannot protect the GPU: the cost of one node rises with m, samples,
-// particles and carrier tessellation. Keep the public node budget as an upper bound, then
-// derive a second breadth-first cap from the actual per-depth workload. The default artwork
-// is untouched; only combinations that would ask a frame to process extreme geometry are cut.
 const FRAME_WORK_BUDGET = 25_000_000;
 let workloadSafetyLimited = false;
-// Nests share one frame budget between them; the main torus keeps the whole of its own.
 let treeBudgetShare = 1;
 
 function nodeWorkAtDepth(depth) {
@@ -1271,18 +1136,18 @@ function safeBreadthFirstCapacity() {
   return Math.max(1, total);
 }
 
-let siteTables = [];        // per depth: { pos, quat, gap, count }
-let supportAt = [];         // per depth: max(R0, max_s(|s| + aFill*gap))
-let evenQuotaCache = [];    // per depth: phase-invariant kept-site count for each v ring
-let nodePosScale = null;    // Float32Array(N*4)  (x, y, z, scale)
-let nodeQuat = null;        // Float32Array(N*4)
-let nodeDepth = null;       // Float32Array(N)
-let nodeLight = null;      // Float32Array(N*3)  key light in node space, per frame
-let nodePlusColor = null;   // Float32Array(N*3)  depth-shaded, changes only on rebuild
-let nodeMinusColor = null;  // Float32Array(N*3)
+let siteTables = [];
+let supportAt = [];
+let evenQuotaCache = [];
+let nodePosScale = null;
+let nodeQuat = null;
+let nodeDepth = null;
+let nodeLight = null;
+let nodePlusColor = null;
+let nodeMinusColor = null;
 let nodeCount = 0;
 let nodeCapacity = 0;
-let depthRanges = [];       // [start, end) per depth, BFS order makes these contiguous
+let depthRanges = [];
 let structureAlpha = 0;
 let animClock = 0;
 let lastFrame = performance.now() / 1000;
@@ -1294,8 +1159,6 @@ function markStructureDirty(boundsMayChange = false) {
   if (boundsMayChange) structureBoundsDirty = true;
 }
 
-// Stereographically projected Hopf fibers are exact circles, so each one is fitted
-// once from three points and thereafter only rotated.
 function circleFromFiber(pointAt, chirality, index) {
   const p0 = pointAt(0, new THREE.Vector3());
   const p1 = pointAt(TAU / 3, new THREE.Vector3());
@@ -1328,7 +1191,6 @@ function fiberCircles(depth) {
   return circles;
 }
 
-// Capacity is the full tree, clamped by the node budget. Allocated once per rebuild.
 function allocateNodes() {
   const requested = requestedNodes();
   const ceiling = BigInt(formula.nodeBudget);
@@ -1344,8 +1206,6 @@ function allocateNodes() {
   nodeCount = 0;
 }
 
-// Depth shading is HSL work on the CPU, exactly as the static build does it; only
-// levels+1 distinct values exist, so they are computed once and fanned out per node.
 function bakeNodeColors() {
   const plus = [], minus = [];
   for (let d = 0; d <= formula.levels; d++) {
@@ -1360,7 +1220,6 @@ function bakeNodeColors() {
   }
 }
 
-// Exact distance from a point to a circle in 3-space, allocation free.
 function circleDistance(px, py, pz, cx, cy, cz, nx, ny, nz, r) {
   const qx = px - cx, qy = py - cy, qz = pz - cz;
   const axial = qx * nx + qy * ny + qz * nz;
@@ -1369,9 +1228,6 @@ function circleDistance(px, py, pz, cx, cy, cz, nx, ny, nz, r) {
   return Math.sqrt(dp * dp + axial * axial);
 }
 
-// The cached circles are the alpha = 0 fibers. Because the counter-rotation is a
-// rigid R_z on each family, a rotated circle is just the rotated centre and normal
-// with the radius unchanged — no refitting.
 let rotatedCircleData = [];
 
 function rotatedCircles(depth, alpha) {
@@ -1409,13 +1265,6 @@ const siteFrameQuat = new THREE.Quaternion();
 const sitePoint = new THREE.Vector3();
 const siteGapPoint = new THREE.Vector3();
 
-/* ==================================================================
- * Deformation applied in EACH NODE'S LOCAL FRAME.
- *
- * Profile belongs only to the root torus. Bridge remains local at every recursion depth.
- * Applying either after the node transform would shear rotated descendants, so the root uses
- * the requested root profile before its transform while children use their independent height.
- * ================================================================== */
 const _dfA = new THREE.Vector3(), _dfB = new THREE.Vector3(), _dfC = new THREE.Vector3();
 const profileScaleAtDepth = depth => depth === 0 ? heightScaleZ() : formula.childHeight;
 const axialAtDepth = depth => depth === 0 ? axialA() : childAxialA();
@@ -1436,8 +1285,6 @@ function deformVec(x, y, z, out, depth = 0) {
   return out.set(x, y, z);
 }
 
-// Smallest local stretch of the deformation, probed along the site's own frame. The gap was
-// measured before deforming, so shrinking it by this keeps children clear of the fibers.
 function deformStretch(p, e1, e2, n, depth) {
   const h = 1e-3;
   let worst = Infinity;
@@ -1450,25 +1297,6 @@ function deformStretch(p, e1, e2, n, depth) {
   return Math.max(1e-3, worst);
 }
 
-/* ==================================================================
- * EVEN NODE SPREAD
- *
- * Sites are the crossings of fiber k with fiber l, so they form a uniform lattice in the
- * (u,v) parameter domain — their positions are not free. Stereographic projection then
- * stretches that domain hard: the area element is geom^2/(C-1)^2 at the outer equator and
- * geom^2/(C+1)^2 at the inner one, so surface density runs as 1/h^2 in the hole ratio. At
- * h = 0.04 the bridge carries 625x the nodes per unit area that the rim does.
- *
- * The sites cannot be moved, but they can be thinned. Each v ring receives an integer quota
- * proportional to its physical surface-area element. Largest-remainder allocation preserves
- * the correct total, then a balanced cyclic selector spreads that quota around u with gaps
- * differing by at most one lattice step. Quotas are cached between rebuilds, so animation
- * cannot make nodes blink across a rounding boundary.
- *
- * Rejected sites are skipped by the BFS rather than inserted as zero-scale nodes. Consequently
- * only visible branches consume node capacity and rejected parents cannot waste the budget by
- * recursively producing invisible descendants.
- * ================================================================== */
 const spreadP0 = new THREE.Vector3(), spreadP1 = new THREE.Vector3();
 const spreadP2 = new THREE.Vector3(), spreadP3 = new THREE.Vector3();
 
@@ -1499,9 +1327,6 @@ function adaptiveArea(a, b, fa, fm, fb, whole, tolerance, iterations, torusDepth
          adaptiveArea(mid, b, fm, fr, fb, right, tolerance * 0.5, iterations - 1, torusDepth);
 }
 
-// A site represents a whole v band, not a zero-width sample. Adaptive integration resolves
-// the very narrow outer-equator band of near-horn tori and measures the profile/bridge-
-// deformed surface that the viewer actually sees.
 function ringAreaWeight(v, torusDepth) {
   const halfWidth = Math.PI / (2 * formula.m);
   const a = v - halfWidth, b = v + halfWidth, mid = v;
@@ -1582,17 +1407,11 @@ function buildSiteTable(depth, alpha) {
     for (let l = 0; l < m; l++) {
       const b = TAU * (l + 0.5) / m + ph.minus;
       for (let q = 0; q < 2; q++) {
-        // u is invariant under the counter-rotation; v carries the whole shift.
         const u = 0.5 * (a + b) + q * Math.PI;
         const v = 0.5 * (b - a) + q * Math.PI - alpha;
 
-        // Thinning is a property of the lattice, not of the animation phase, so it is decided
-        // on the UNROTATED v. Deciding on v - alpha re-evaluates the quota against a moving
-        // target every frame and the nodes blink as they cross a boundary.
         let keep = 1;
         if (formula.evenNodes) {
-          // The lattice ring is exactly (l-k+q*m) mod 2m. Detuning shifts the physical v
-          // sampled by that ring, but must not be rounded into the discrete ring identity.
           const rings = 2 * m;
           const ring = ((l - k + q * m) % rings + rings) % rings;
           keep = keepRingAzimuth(k, ring, depth, m, ringQuotas[ring]);
@@ -1607,14 +1426,11 @@ function buildSiteTable(depth, alpha) {
         P(u, v, sitePoint);
         siteGapPoint.copy(sitePoint);
 
-        // oriented tangent frame Q_d(s), same construction as the static build
         Pu(u, v, siteFrameE1).normalize();
         Pv(u, v, siteFrameDv);
         siteFrameN.crossVectors(siteFrameE1, siteFrameDv).normalize();
         siteFrameE2.crossVectors(siteFrameN, siteFrameE1).normalize();
 
-        // Every table is local to the torus at that recursion depth. Rebuild the frame from
-        // the locally deformed neighbourhood so descendants attach without inherited shear.
         let stretch = 1;
         if (deformActive(depth)) {
           stretch = deformStretch(sitePoint, siteFrameE1, siteFrameE2, siteFrameN, depth);
@@ -1650,7 +1466,6 @@ function buildSiteTable(depth, alpha) {
           );
           if (d < best) best = d;
         }
-        // the gap was measured before deforming, so bring it into the deformed metric
         const deformedGap = best * stretch;
         table.gap[idx] = deformedGap;
         const reach = sitePoint.length() + formula.aFill * deformedGap;
@@ -1663,16 +1478,10 @@ function buildSiteTable(depth, alpha) {
   return table;
 }
 
-// The root node's scale. 1 for the main torus; a nest is a main-form torus scaled to its shell.
 let treeRootScale = 1;
-// Its turn about the axis. Neighbouring projected golden nests sit half a lattice cell apart.
 let treeRootTurn = 0;
 
-// BFS walk into flat arrays. No allocation, no Vector3/Quaternion churn.
 function stepStructure(alpha) {
-  // The fitted Hopf circles depend on all three values below. Keeping the old circles while
-  // a live control changed P(u,v) made the gap solver measure against a different torus and
-  // produced abrupt child-size jumps until the next full rebuild.
   const shapeKey = `${formula.m}|${formula.delta}|${shapeC().toPrecision(12)}`;
   if (shapeKey !== circleCacheShapeKey) {
     circleCacheShapeKey = shapeKey;
@@ -1713,7 +1522,6 @@ function stepStructure(alpha) {
         const gap = table.gap[s];
         if (!(gap > 1e-12)) continue;
 
-        // child position = parentQuat * (sitePos * parentScale) + parentPos
         const lx = table.pos[s * 3] * ps, ly = table.pos[s * 3 + 1] * ps, lz = table.pos[s * 3 + 2] * ps;
         const tx = 2 * (qy * lz - qz * ly);
         const ty = 2 * (qz * lx - qx * lz);
@@ -1728,7 +1536,6 @@ function stepStructure(alpha) {
         nodePosScale[o + 2] = pz + wz;
         nodePosScale[o + 3] = ps * (formula.aFill * gap / childSupport);
 
-        // child quaternion = parentQuat * siteQuat
         const sx = table.quat[s * 4], sy = table.quat[s * 4 + 1], sz = table.quat[s * 4 + 2], sw = table.quat[s * 4 + 3];
         nodeQuat[o] = qw * sx + qx * sw + qy * sz - qz * sy;
         nodeQuat[o + 1] = qw * sy - qx * sz + qy * sw + qz * sx;
@@ -1749,17 +1556,12 @@ function stepStructure(alpha) {
   nodeCount = count;
 }
 
-/* ---------------- shared GLSL ---------------- */
-
-const GLSL_BRIDGE = /* glsl */`
-  // Bridge warp in one torus's local space. Radial shift only; z is untouched.
+const GLSL_BRIDGE = `
   uniform float uBridge, uBridgeRadial, uBridgeAxial;
   float bridgeT(float z) {
     float u = z / uBridgeAxial;
     return 1.0 - sqrt(max(1.0 - u * u, 0.02));
   }
-  // Profile correction then bridge warp, applied before each node's rigid transform. The
-  // Root and recursive child tori receive independent local axial scales.
   uniform float uProfileZ, uChildProfileZ, uChildAxial, uDeformOn;
   vec3 deformPoint(vec3 p) {
     p.z *= uProfileZ;
@@ -1785,11 +1587,7 @@ const GLSL_BRIDGE = /* glsl */`
     }
     return p;
   }
-  // Normals transform by the cofactor of the warp Jacobian (= det * J^-T; the scale drops
-  // out under normalize). J is lower-block trivial because z is unchanged.
   vec3 bridgeNormal(vec3 p, vec3 n) {
-    // deformPoint scales Z before it applies the bridge. Mirror that order here and apply
-    // the inverse-transpose of the profile scale so tall/flat carriers shade correctly.
     p.z *= uProfileZ;
     n.z /= max(uProfileZ, 1e-5);
     if (uBridge <= 0.0) return n;
@@ -1809,7 +1607,6 @@ const GLSL_BRIDGE = /* glsl */`
       (b * f - c * e) * n.x + (c * d - a * f) * n.y + (a * e - b * d) * n.z
     );
   }
-  // P(u,v) = geom * (cos u, sin u, cos v) / (C - sin v).  C is the major/minor ratio.
   uniform float uC, uGeom;
   vec3 torPoint(float u, float v) {
     float D = uC - sin(v);
@@ -1817,10 +1614,7 @@ const GLSL_BRIDGE = /* glsl */`
   }
 `;
 
-// Both families in one branch-free expression:
-//   chir = +1 -> u = t + (TAU*j/m + d*delta + alpha)   = Gamma^+ rotated by +alpha
-//   chir = -1 -> u = (TAU*j/m - d*delta - alpha) - t   = Gamma^- rotated by -alpha
-const FIBER_VERT = /* glsl */`
+const FIBER_VERT = `
       attribute float aT, aF;
       attribute vec4 iPosScale, iQuat;
       attribute float iDepth;
@@ -1833,35 +1627,27 @@ const FIBER_VERT = /* glsl */`
         float u    = chir * aT + basePhase(aF, uM, iDepth, uDelta, uAlpha);
         float v    = aT;
 
-        // One evaluation each. torPoint() and the tangent block used to recompute sin/cos of
-        // u and v two or three times per vertex, and this shader runs millions of times a frame.
         float su = sin(u), cu = cos(u), sv = sin(v), cv = cos(v);
         float D  = uC - sv;
         vec3 local = uGeom * vec3(cu, su, cv) / D;
 
-        // Analytic tangent dP/dt with du/dt = chir, dv/dt = 1, scaled through by D*D so the two
-        // divisions vanish — normalize() removes the common factor, and D > 0 since uC > 1 >= sin v.
         vec3 T = normalize(chir * D * vec3(-su, cu, 0.0) + vec3(cu * cv, su * cv, 1.0 - uC * sv));
 
-        // iLight is the key light already rotated into node space on the CPU; it is constant per
-        // instance, so doing it per vertex was millions of redundant quaternion rotations a frame.
         float sheen = uSheenStrength * pow(max(1.0 - abs(dot(T, iLight)), 0.0), uSheenSharpness);
         vColor = mix(chir > 0.0 ? iPlus : iMinus, uSheenColor, sheen);
 
-        // Shape each torus in its own local frame, then place it in the recursion. Moving the
-        // deformation after qrot() would make a global Z scale shear rotated child tori.
         if (uDeformOn > 0.5) local = deformPointAtDepth(local, iDepth);
         vec3 p = qrot(iQuat, local * iPosScale.w) + iPosScale.xyz;
         gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
       }`;
 
-const FIBER_FRAG = /* glsl */`
+const FIBER_FRAG = `
       uniform float uOpacity;
       varying vec3 vColor;
       void main() { gl_FragColor = vec4(vColor, uOpacity); }
 `;
 
-const GLSL_COMMON = GLSL_BRIDGE + /* glsl */`
+const GLSL_COMMON = GLSL_BRIDGE + `
   #define TAU 6.283185307179586
   #define SQRT2 1.4142135623730951
 
@@ -1874,7 +1660,7 @@ const GLSL_COMMON = GLSL_BRIDGE + /* glsl */`
 
 `;
 
-const GLSL_FIBER_PHASE = /* glsl */`
+const GLSL_FIBER_PHASE = `
   float chirOf(float f, float m)  { return f < m ? 1.0 : -1.0; }
   float indexOf(float f, float m) { return f < m ? f : f - m; }
   float basePhase(float f, float m, float depth, float delta, float alpha) {
@@ -1883,16 +1669,9 @@ const GLSL_FIBER_PHASE = /* glsl */`
   }
 `;
 
-/* ---------------- fibers: instanced, shader evaluated ---------------- */
-
 let fiberMeshes = [];
 let fiberMaterial = null;
 
-// One instanced draw per depth. Depth strata are contiguous in BFS order, so each mesh
-// instances over a subarray VIEW of the shared node buffers — the views alias the same
-// memory, so syncGPU still writes the arrays once.
-// The shape arrives as arguments rather than being read inside, so every torus that owns a
-// material (the main one and each nest) passes its own C and geom.
 function makeFiberMaterial(cValue, geomValue, deformation = {}) {
   const opaque = formula.fiberOpacity >= 0.999;
   const bridge = deformation.bridge || bridgeUniform;
@@ -1974,24 +1753,6 @@ function buildFiberMeshes() {
   return meshes;
 }
 
-/* ---------------- crossing lattice ---------------- */
-
-// Where plus fiber k meets minus fiber l. Setting the two parametrisations equal,
-//   u = pi(k + l)/m + q pi        v = pi(l - k)/m + q pi - depth*delta - alpha,   q in {0, 1}.
-// The detuning and the counter-rotation cancel out of u and slide v by the same amount
-// for every crossing. On S^3 that is a rotation, an isometry, so the lattice is rigid
-// there however it animates, and only its stereographic shadow in 3D changes shape.
-//
-// Edges come from adjacency on S^3, not from distance in 3D. The projection stretches
-// the outer ring and crushes the inner, so a nearest-neighbour rule in 3D leaves some
-// crossings with no neighbour at all and joins others across the hole. On the Clifford
-// torus the lattice is uniform, every crossing has the same number of equidistant
-// neighbours, and that adjacency is fixed for a given m at every phase.
-//
-// At m = 2 the eight crossings are exactly the vertices of a 16-cell: 24 edges of length
-// sqrt 2 and four antipodal pairs at 2. Counter-rotation turns it rigidly in 4D, and its
-// 3D shadow passes from an octahedron at alpha = 0 to a tetrahedron holding an inverted
-// tetrahedron at alpha = pi/4, and back.
 let latticeMeshes = [];
 let latticeMaterials = [];
 
@@ -2005,13 +1766,9 @@ function crossingTable(m) {
     const u = Math.PI * (k + l) / m + q * Math.PI;
     const v = Math.PI * (l - k) / m + q * Math.PI;
     u0[i] = u; v0[i] = v;
-    // the crossing's preimage on the Clifford torus in S^3
     X[i*4] = Math.cos(u) * Math.SQRT1_2; X[i*4+1] = Math.sin(u) * Math.SQRT1_2;
     X[i*4+2] = Math.cos(v) * Math.SQRT1_2; X[i*4+3] = Math.sin(v) * Math.SQRT1_2;
   }
-  // Candidates are the lattice neighbours one step either way in k and l, on both
-  // branches. Stepping k past m lands on the other branch, which is why q is searched
-  // rather than assumed; the 4D distance then decides what is actually adjacent.
   const d4 = (i, j) => {
     const a = X[i*4]-X[j*4], b = X[i*4+1]-X[j*4+1], c = X[i*4+2]-X[j*4+2], d = X[i*4+3]-X[j*4+3];
     return Math.sqrt(a*a + b*b + c*c + d*d);
@@ -2040,7 +1797,7 @@ function crossingTable(m) {
   return { n, u0, v0, edges: Uint32Array.from(edges), edgeLength4D: best };
 }
 
-const LATTICE_VERT = /* glsl */`
+const LATTICE_VERT = `
   attribute float aU0, aV0;
   attribute vec4 iPosScale, iQuat;
   attribute float iDepth;
@@ -2050,18 +1807,17 @@ const LATTICE_VERT = /* glsl */`
     float v = aV0 - iDepth * uDelta - uAlpha;
     float D = uC - sin(v);
     vec3 local = uGeom * vec3(cos(u), sin(u), cos(v)) / D;
-    // identical placement to the fibers, so every vertex sits exactly on a crossing
     if (uDeformOn > 0.5) local = deformPointAtDepth(local, iDepth);
     vec3 p = qrot(iQuat, local * iPosScale.w) + iPosScale.xyz;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
     gl_PointSize = uPointSize;
   }`;
-const LATTICE_FRAG = /* glsl */`
+const LATTICE_FRAG = `
   uniform vec3 uColor;
   uniform float uOpacity;
   uniform float uIsPoint;
   void main() {
-    if (uIsPoint > 0.5 && length(gl_PointCoord - 0.5) > 0.5) discard;   // round dots
+    if (uIsPoint > 0.5 && length(gl_PointCoord - 0.5) > 0.5) discard;
     gl_FragColor = vec4(uColor, uOpacity);
   }`;
 
@@ -2087,8 +1843,6 @@ function makeLatticeMaterial(isPoint) {
     vertexShader: GLSL_COMMON + LATTICE_VERT,
     fragmentShader: LATTICE_FRAG,
     transparent: true,
-    // drawn over the carrier bodies: the point is to read the structure whole, and a
-    // depth test would hide every edge that passes behind the torus
     depthTest: false,
     depthWrite: false
   });
@@ -2102,10 +1856,6 @@ function buildLatticeMeshes() {
   latticeInfo = null;
   if (!formula.crossingLattice || isE8Mode()) return latticeMeshes;
   const table = crossingTable(formula.m);
-  // Child tori sit at the aperture sites (k + 1/2, l + 1/2), which are the crossings
-  // translated by pi/m in u with v unchanged. A translation of the flat torus moves every
-  // point the same way and preserves every distance, so the adjacency already found holds
-  // unchanged: the centres lattice is the crossings lattice slid half a step.
   const centres = formula.crossingMode === 'centres';
   const uShift = centres ? Math.PI / formula.m : 0;
   const u0 = uShift ? table.u0.map(u => u + uShift) : table.u0;
@@ -2113,7 +1863,6 @@ function buildLatticeMeshes() {
   const lineMat = makeLatticeMaterial(false);
   const pointMat = formula.crossingPoints ? makeLatticeMaterial(true) : null;
 
-  // edges: two vertices each, carrying the base (u, v) of the crossing at that end
   const ev = table.edges.length;
   const eu = new Float32Array(ev), evv = new Float32Array(ev);
   for (let i = 0; i < ev; i++) { eu[i] = u0[table.edges[i]]; evv[i] = table.v0[table.edges[i]]; }
@@ -2157,9 +1906,6 @@ function buildLatticeMeshes() {
 }
 let latticeInfo = null;
 
-// Named only where it has been checked. At m = 2 the vertex, edge and degree counts
-// and the 4D edge length all match the 16-cell; other m give a uniform degree-4
-// lattice on the Clifford torus, which is reported as that and not guessed at.
 function latticeReadout() {
   if (e8Polytope) return e8Readout();
   if (!latticeInfo) return '';
@@ -2167,8 +1913,6 @@ function latticeReadout() {
   let name = 'uniform lattice on the Clifford torus';
   if (formula.m === 2 && vertices === 8 && edges === 24 && Math.abs(edge4D - Math.SQRT2) < 1e-6)
     name = '16-cell (regular 4-polytope)';
-  // Judged on C rather than the raw slider value, and with room for the slider's own step:
-  // the warning is for when the shape has actually moved, not for a rounding difference.
   const C = shapeC();
   const clifford = Math.abs(C - Math.SQRT2) / Math.SQRT2 < 0.005;
   const what = centres ? 'torus-centre lattice' : 'crossing lattice';
@@ -2178,8 +1922,6 @@ function latticeReadout() {
          `  ${name}${clifford ? '' : ' - shape moved off the Clifford proportion'}\n` +
          `  shadow cycle = ${(Math.PI / formula.m / Math.max(1e-4, formula.alphaSpeed)).toFixed(1)} s\n`;
 }
-
-/* ---------------- particles: comet trains riding the fibers ---------------- */
 
 let particleTiers = [];
 
@@ -2200,7 +1942,6 @@ function buildParticleTier(depth, trains, tail) {
 
   let w = 0;
   for (let f = 0; f < fibers; f++) {
-    // one speed per fiber keeps a train rigid, as in Bundle/AM
     const spd = -(0.45 + 0.35 * Math.random());
     for (let tr = 0; tr < trains; tr++) {
       const head = ((tr + 0.6 * Math.random()) / trains) * TAU;
@@ -2238,9 +1979,6 @@ function buildParticleTier(depth, trains, tail) {
   geometry.instanceCount = instances;
   geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(), R0 * 1.35);
 
-  // depth and colour are fixed for the tier's whole lifetime. iDepth carries the
-  // d*delta term of the fiber phase, so leaving it zero puts the particles of every
-  // deeper tier slightly off the fibers they are supposed to be riding.
   for (let i = 0; i < instances; i++) {
     iDepth[i] = depth;
     const src = (start + i) * 3;
@@ -2272,7 +2010,7 @@ function buildParticleTier(depth, trains, tail) {
       uGateHi: { value: formula.particleGate * 4 + 1 },
       uSizeGamma: { value: 0.45 }
     },
-    vertexShader: GLSL_COMMON + GLSL_FIBER_PHASE + /* glsl */`
+    vertexShader: GLSL_COMMON + GLSL_FIBER_PHASE + `
       attribute float aF, aPhase, aSpd, aSeed, aSize, aTail;
       attribute vec4 iPosScale, iQuat;
       attribute float iDepth;
@@ -2284,7 +2022,6 @@ function buildParticleTier(depth, trains, tail) {
       void main() {
         float chir = chirOf(aF, uM);
         float ph   = basePhase(aF, uM, iDepth, uDelta, uAlpha);
-        // the particle's own parameter advances along the fiber — this is the flow
         float t    = aPhase + uTime * aSpd * uFlow;
         float u    = chir * t + ph;
         vec3 local = torPoint(u, t);
@@ -2294,8 +2031,6 @@ function buildParticleTier(depth, trains, tail) {
         vec4 mv = modelViewMatrix * vec4(p, 1.0);
         float depthEye = max(0.001, -mv.z);
 
-        // Projected-size gate: a node only a couple of pixels across cannot show
-        // flow, so its particles are collapsed to zero size and emit no fragments.
         float pxR  = iPosScale.w * ${R0.toFixed(6)} * uFocal / depthEye;
         float gain = smoothstep(uGateLo, uGateHi, pxR);
 
@@ -2303,19 +2038,13 @@ function buildParticleTier(depth, trains, tail) {
         vCol = (chir > 0.0 ? iPlus : iMinus) * 1.35;
         vA = uAlphaMul * aTail * tw * gain;
 
-        // node scale spans ~450x across depths, so size follows a gamma, not linearly
         float sizeScale = pow(max(iPosScale.w, 1e-5), uSizeGamma);
-        // uResScale, not devicePixelRatio. A capped dpr keeps a particle the same size in
-        // CSS pixels, but the artwork keeps growing with the framebuffer — so on a tall or
-        // high-DPI display the particles end up proportionally tiny (61% too small at 4K).
-        // Referencing the same 1700px buffer height the bloom uses makes the particle a
-        // constant fraction of the piece on every device.
         gl_PointSize = clamp(uSize * aSize * tw * uResScale * sizeScale * (10.0 / depthEye),
                              0.0, 32.0 * uResScale * 0.5);
         if (gain <= 0.0) gl_PointSize = 0.0;
         gl_Position = projectionMatrix * mv;
       }`,
-    fragmentShader: /* glsl */`
+    fragmentShader: `
       varying vec3 vCol;
       varying float vA;
       void main() {
@@ -2339,26 +2068,17 @@ function buildParticleTier(depth, trains, tail) {
   return { depth, start, end, points, material, geometry, iPosScale, iQuat, iDepth, iPlus, iMinus, count: per * instances };
 }
 
-/* ---------------- carrier tori ---------------- */
-
 let torusMeshes = [];
 const torusMatrix = new THREE.Matrix4();
 const torusPos = new THREE.Vector3();
 const torusQuat = new THREE.Quaternion();
 const torusScale = new THREE.Vector3();
 
-// One InstancedMesh per depth so each level can carry its own tessellation. Depth 2 holds
-// 98.6% of the nodes at a median ~5px across, where a full 16x88 torus is 2816 triangles of
-// sub-pixel geometry — that alone was 14.6M triangles a frame.
-// The bridge warp has to reach the stock PBR material used by every carrier shell, instanced
-// or not, so the injection lives here and both paths call it.
 function patchBridge(material, deformation = {}) {
   const bridge = deformation.bridge || bridgeUniform;
   const bridgeRadial = deformation.bridgeRadial || bridgeRadialUniform;
   const bridgeAxial = deformation.bridgeAxial || bridgeAxialUniform;
   const profileZ = deformation.profileZ || profileZUniform;
-  // Stock PBR material, so the warp is injected in object-local space before the instance
-  // transform. Each recursive torus is then shaped about its own axis rather than the root Z.
   material.onBeforeCompile = shader => {
     shader.uniforms.uBridge = bridge;
     shader.uniforms.uBridgeRadial = bridgeRadial;
@@ -2409,8 +2129,6 @@ function buildTorusMeshes() {
     if (instances <= 0) continue;
     if (d === 0 ? !formula.showRootTorus : !formula.showTori) continue;
 
-    // Bake root and child height independently into their local carrier geometries. Every
-    // instance remains a uniform scale+rotation, so neither profile shears the other depth.
     const localAxial = d === 0 ? axialA() : childAxialA();
     const geometry = new THREE.TorusGeometry(ringR() / R0, radialA() / R0, torusRadialAt(d), torusTubularAt(d));
     geometry.scale(1, 1, localAxial / radialA());
@@ -2422,8 +2140,6 @@ function buildTorusMeshes() {
       envMapIntensity: formula.envIntensity,
       transparent: !opaque,
       opacity: formula.torusOpacity,
-      // The carrier shell is exactly coincident with the fibre surface it carries, so it must
-      // never win the depth test against the fibres: no depth writes, and pushed back.
       depthWrite: opaque,
       polygonOffset: true,
       polygonOffsetFactor: 2,
@@ -2433,8 +2149,6 @@ function buildTorusMeshes() {
       emissiveIntensity: formula.emissiveStrength
     });
 
-    // Bridge deformation is local for every recursion depth, with the appropriate root/child
-    // axial reference. Profile has already been baked only into the root geometry above.
     material.userData.deformOn = true;
     material.userData.nestShell = !!treeContext;
     patchBridge(material, d === 0 ? carrierDeformation : childCarrierDeformation);
@@ -2452,18 +2166,6 @@ function buildTorusMeshes() {
   return meshes;
 }
 
-/* ---------------- nested Hopf tori: a whole tree per nest ---------------- */
-
-// NESTED HOPF TORI. Not the fractal children, which sit in the gaps ON a surface. These are
-// concentric tori sharing the main torus's core circle, each with a smaller tube, so they nest
-// like onion layers. A shell with ring R_c and radial tube a_r is the Hopf torus C = R_c/a_r,
-// and that is exactly the main-form torus of hole ratio h = (C-1)/(C+1) scaled by R_c/ringR(h).
-// So a nest is the whole engine again with its own m, hole ratio, profile and root scale: its
-// fibres, site tables, fractal children, particles and lattice come out of the same code as the
-// main torus, and a nest at fractal level 0 is the shell and its Villarceau fibres alone.
-//
-// The engine reads its state from module bindings and from `formula`, so a nest runs by swapping
-// its own state in for the length of one call and putting the main torus back afterwards.
 const PHI = (1 + Math.sqrt(5)) / 2;
 const NEST_HOLE_CEILING = 0.9999;
 let nestTrees = [];
@@ -2474,12 +2176,6 @@ function parseNestChirality(value) {
     .map(n => Math.max(1, parseInt(n, 10))).join('-');
 }
 
-// Where nest k of count sits, in world units: its C, ring radius, radial tube and half-height.
-// Even and golden keep the main torus's ring and shrink the tube, golden by phi each step, so
-// neighbouring tubes stand in the golden ratio all the way in. Projected keeps golden steps in C
-// but places each torus where stereographic projection from S^3 puts it under the main torus's
-// frame, so the layers nest about the S^3 core circle instead of sharing a ring. Those are the tori
-// the 600-cell's vertices lie on (see the E8 block below).
 function nestGeometry(k, count) {
   if (formula.nestSpacing === 'projected') {
     const Cm = shapeC();
@@ -2535,7 +2231,6 @@ function useTreeState(s) {
   } = s);
 }
 
-// Read live from the main torus every call, so dragging the hole or profile moves the nests too.
 function nestFrame(tree) {
   const g = nestGeometry(tree.k, tree.count);
   const h = Math.min(NEST_HOLE_CEILING, (g.C - 1) / (g.C + 1));
@@ -2572,14 +2267,12 @@ function withTree(tree, fn) {
   }
 }
 
-// Fibres, lattice, particles and carriers for whichever torus is current, in the main order.
 function addTreeObjects(group) {
   if (!formula.hideAllFibers) for (const f of buildFiberMeshes()) group.add(f.mesh);
   for (const l of buildLatticeMeshes()) group.add(l.mesh);
 
   if (formula.showParticles) {
     for (let d = 0; d <= formula.levels; d++) {
-      // density tapers with depth: deep nodes are only a few pixels across
       const falloff = Math.pow(formula.particleDepthFalloff, d);
       if (d > 0 && falloff < 0.02) break;
       const trains = Math.max(1, Math.round(formula.particleTrains * falloff));
@@ -2602,14 +2295,12 @@ function buildNestTrees() {
   const innerPlus = new THREE.Color(formula.nestPlusColor), innerMinus = new THREE.Color(formula.nestMinusColor);
   for (let k = 1; k <= count; k++) {
     if (nestGeometry(k, count).tube < 1e-3) continue;
-    // the shift deepens toward the innermost nest
     const t = formula.nestColorMix * k / count;
     const m = list.length ? list[Math.min(k - 1, list.length - 1)] : formula.m;
     nestTrees.push({
       k, count, m,
       turn: formula.nestSpacing === 'projected' && k % 2 ? Math.PI / m : 0,
       levels: Math.max(0, Math.round(formula.nestFractalLevels)),
-      // nests split one node budget between them rather than each taking a full one
       nodeBudget: Math.max(1, Math.floor(formula.nodeBudget / count)),
       plusColor: t > 0 ? '#' + plus.clone().lerp(innerPlus, t).getHexString() : formula.plusColor,
       minusColor: t > 0 ? '#' + minus.clone().lerp(innerMinus, t).getHexString() : formula.minusColor,
@@ -2628,17 +2319,12 @@ function buildNestTrees() {
 
 const gcd = (a, b) => { a = Math.abs(a); b = Math.abs(b); while (b) [a, b] = [b, a % b]; return a || 1; };
 
-// Each torus repeats every TAU/m of counter-rotation, so the assembly repeats every TAU/gcd.
 function loopChirality() {
   let g = Math.max(1, Math.round(formula.m));
   for (const tree of nestTrees) g = gcd(g, tree.m);
   return g;
 }
 
-/* ---------------- complete lattice: joins between nests ---------------- */
-
-// Sites as integers, u = pi*A/m and v = pi*B/m (mod 2pi). Crossings have A = B mod 2; torus
-// centres sit a step further along u, and a turned nest one more, so shift counts those steps.
 function latticeSiteIndices(m, shift) {
   const sites = [];
   for (let k = 0; k < m; k++) for (let l = 0; l < m; l++) for (let q = 0; q < 2; q++) {
@@ -2652,13 +2338,6 @@ function latticeSiteIndices(m, shift) {
 
 const angleGap = (a, b) => Math.abs(((a - b) % TAU + TAU * 1.5) % TAU - Math.PI);
 
-// COMPLETE LATTICE. Neighbouring layers (the main torus, then each nest inward) are joined where
-// both carry a site at the same (u, v). Every nest uses the same (u, v) chart, so a join runs
-// straight across the gap, and counter-rotation slides both ends by the same -alpha in v, so the
-// joins never shear. Crossing lattices of m and m' share exactly the crossing lattice of
-// gcd(m, m'), 2*gcd^2 sites, and equal m joins every site. Torus centres can share none (m = 12
-// against m = 6 shares none), and only then is each site of the sparser layer joined to its
-// nearest site on the other.
 let nestSpokes = null;
 const spokePoint = new THREE.Vector3();
 
@@ -2725,7 +2404,6 @@ function buildNestSpokes() {
   updateNestSpokes();
 }
 
-// Each end is placed exactly as the lattice shader places a level-0 vertex of its own torus.
 function updateNestSpokes() {
   if (!nestSpokes) return;
   const pos = nestSpokes.positions;
@@ -2765,30 +2443,6 @@ function nestReadout() {
   return text;
 }
 
-/* ---------------- E8 shadow: joining the crossings on the 3-sphere ---------------- */
-
-// E8's 240 roots, projected to four dimensions, fall onto two 600-cells whose sizes stand in the
-// golden ratio (Elser and Sloane, 1987); on the 3-sphere the two copies coincide. This mode builds
-// its structure from what is actually on screen, so it follows m, the nests and their spacing:
-//   every torus contributes its own crossing lattice at its own m (a turned nest turned with it),
-//   the core circle and the axis, the two tori that have shrunk to circles, carry 2m points each,
-//   interleaved half a step with the main lattice,
-//   and every point is joined to its nearest neighbours by true distance on the 3-sphere.
-// A torus of C sits on the 3-sphere at |z2| = 1/C, with the composer's (u, v) as the phases of z1
-// and z2. Nearest is taken per point, within a hair of its own closest distance, so a slider that
-// lands a little off an exact value does not split one family of edges into two.
-// At m = 5 with the main torus at hole 0.0807 and one nest in projected golden spacing, this is
-// exactly the 600-cell: 120 vertices, 720 edges, 12 at each (checked numerically). Counter-rotation
-// is a rigid rotation of the 3-sphere, so the joins found at alpha = 0 hold at every phase.
-//
-// E8 LINKS. Each E8 root has 56 neighbours at 60 degrees, 6,720 links in all. Folded onto the
-// 3-sphere, where the two 600-cells coincide, those links land on exactly four distances between
-// the 120 points, 1/phi, 1, sqrt(3 - phi) and phi, and on every pair at each of them, never on a
-// pair at sqrt 2 or beyond (checked numerically: 720 + 1200 + 720 + 720 pairs, 12 + 20 + 12 + 12 =
-// 56 at every point, each line carrying two E8 links, one per copy). As multiples of the nearest
-// distance those are 1, phi, sqrt(phi + 2) and phi^2, so the E8 pattern is the same rule as the
-// nearest join with golden shells added, and it too follows m: only the golden setting puts
-// points on every shell.
 const E8_HOLE = (Math.sqrt(PHI + 2) / PHI - 1) / (Math.sqrt(PHI + 2) / PHI + 1);
 const E8_TOLERANCE = 0.01;
 const E8_LINK_SHELLS = [1, PHI, Math.sqrt(PHI + 2), PHI * PHI];
@@ -2806,7 +2460,7 @@ function buildE8Polytope() {
   e8Polytope = null;
   if (!formula.crossingLattice || !isE8Mode()) return;
   const layers = e8Layers();
-  const verts = [];                       // { u, v, p: point on the unit 3-sphere }
+  const verts = [];
   const byLayer = layers.map(() => []);
   layers.forEach((layer, li) => {
     const r2 = 1 / layer.C, r1 = Math.sqrt(Math.max(0, 1 - r2 * r2)), m = layer.m;
@@ -2825,9 +2479,6 @@ function buildE8Polytope() {
     axis.push(verts.length); verts.push({ u: 0, v: a, p: [0, 0, Math.cos(a), Math.sin(a)] });
   }
 
-  // Every point has a neighbour no further than one lattice step, 2 sin(pi/2m) whatever the torus,
-  // so buckets that size find every nearest distance, and buckets phi^2 wider find every shell,
-  // without comparing all pairs. Each pair is visited once.
   const n = verts.length;
   let reach = 2 * Math.sin(Math.PI / (2 * m));
   for (const layer of layers) reach = Math.max(reach, 2 * Math.sin(Math.PI / (2 * layer.m)));
@@ -2867,7 +2518,6 @@ function buildE8Polytope() {
     if (dd < nearest[i]) nearest[i] = dd;
     if (dd < nearest[j]) nearest[j] = dd;
   });
-  // a pair joins when it sits on one of the shells of either end
   const onShell = (i, dd) => {
     for (let s = 0; s < shells.length; s++) {
       const r = nearest[i] * shells[s];
@@ -2882,10 +2532,7 @@ function buildE8Polytope() {
   const degree = new Uint32Array(n);
   for (const i of edges) degree[i]++;
 
-  // A point on the axis passes through the projection pole and out to infinity once a cycle. The
-  // shader drops any point flagged invisible, and any line with such an end, rather than let it
-  // streak across the frame.
-  const vert = /* glsl */`
+  const vert = `
     attribute float aVisible;
     uniform float uPointSize;
     void main() {
@@ -2927,8 +2574,6 @@ function buildE8Polytope() {
   updateE8Polytope();
 }
 
-// Torus points are placed exactly as the lattice shader places a crossing on its own torus; the
-// two circles are placed by the main torus's projection, which the tori match when it is round.
 function updateE8Polytope() {
   if (!e8Polytope) return;
   const { layers, verts, byLayer, core, axis, edges, projected, visible, lines, points } = e8Polytope;
@@ -2995,9 +2640,7 @@ function syncGPU() {
     l.geometry.attributes.iPosScale.needsUpdate = true;
     l.geometry.attributes.iQuat.needsUpdate = true;
   }
-  // fibers instance over every node and read the flat arrays directly
   if (fiberMeshes.length) {
-    // rotate the key light into each node's frame once: v' = conj(q) * v
     const lx = SHEEN_DIR.x, ly = SHEEN_DIR.y, lz = SHEEN_DIR.z;
     for (let i = 0; i < nodeCount; i++) {
       const o = i * 4;
@@ -3010,7 +2653,6 @@ function syncGPU() {
       nodeLight[b + 1] = ly + qw * ty + (qz * tx - qx * tz);
       nodeLight[b + 2] = lz + qw * tz + (qx * ty - qy * tx);
     }
-    // each depth's attributes are subarray views onto the buffers just written
     for (const f of fiberMeshes) {
       f.geometry.attributes.iPosScale.needsUpdate = true;
       f.geometry.attributes.iQuat.needsUpdate = true;
@@ -3054,16 +2696,10 @@ function syncGPU() {
   syncPheno();
 }
 
-// Distance from the camera to the root torus's core circle: radius sqrt(2) about the
-// Z axis (TorusGeometry(SQRT2/R0, 1/R0) scaled by R0 => major sqrt2, minor 1). Under
-// the tube radius means the camera is inside the toroid, where a smaller particle is
-// wanted because the fibers are suddenly all around the viewer.
 const PARTICLE_REFERENCE = 1700;
 const particleBuffer = new THREE.Vector2();
 let frameParticleSize = 0;
 
-// Normalised elliptical radius from the tube's core circle: < 1 means the camera is inside
-// the toroid. axialA() is the final world-space half-height, so this works directly in world space.
 function cameraTubeDistance() {
   const p = camera.position;
   const dr = Math.hypot(p.x, p.y) - ringR();
@@ -3072,15 +2708,10 @@ function cameraTubeDistance() {
 
 function effectiveParticleSize() {
   if (!formula.insideSizeShift) return formula.particleSize;
-  // narrow blend band rather than a hard switch, so crossing the wall does not pop
   const t = THREE.MathUtils.smoothstep(cameraTubeDistance(), 0.9, 1.1);
   return formula.particleSizeInside + (formula.particleSize - formula.particleSizeInside) * t;
 }
 
-// The hole parameter reaches three places: the CPU structure walk (live, since shapeC()
-// is read every frame), the shaders' uC/uGeom, and the carrier torus proportions. Only the
-// first was live — the other two were fixed at build time, so dragging the slider moved the
-// nodes while the fibers, particles and tori kept their old shape until the mouse released.
 let lastCarrierShapeKey = '';
 
 function syncShapeUniforms() {
@@ -3131,13 +2762,11 @@ function setAnimationUniforms(time, alpha) {
   carrierBridgeAxialUniform.value = Math.max(1e-4, axialA() / R0);
   childCarrierBridgeAxialUniform.value = Math.max(1e-4, childAxialA() / R0);
   syncShapeUniforms();
-  if (!treeContext) applyTorusHeight();   // early-returns unless the effective Z scale actually moved
+  if (!treeContext) applyTorusHeight();
   if (fiberMaterial) fiberMaterial.uniforms.uAlpha.value = alpha;
   for (const lm of latticeMaterials) lm.uniforms.uAlpha.value = alpha;
   const focal = 0.5 * renderer.domElement.height / Math.tan(THREE.MathUtils.degToRad(camera.fov) * 0.5);
-  // the inside test belongs to the main torus, so nests reuse its size rather than their own tube's
   const size = treeContext ? frameParticleSize : (frameParticleSize = effectiveParticleSize());
-  // 2.0 at the 1700px reference buffer, so a Retina laptop is unchanged
   renderer.getDrawingBufferSize(particleBuffer);
   const resScale = 2 * particleBuffer.y / PARTICLE_REFERENCE;
   for (const tier of particleTiers) {
@@ -3160,17 +2789,11 @@ function updateLegend() {
 }
 
 function applyPostLook() {
-  // Phenomenology brings its own light: a paper ground, neutral tone mapping that keeps white
-  // white, almost no bloom, and soft occlusion, which is what makes porcelain and skin read.
   const pheno = !!formula.phenomenology;
   const look = pheno ? PHENO_LOOK : formula;
   bloomPass.strength = look.bloomStrength;
   bloomPass.radius = look.bloomRadius;
   bloomPass.threshold = look.bloomThreshold;
-  // The high pass is smoothstep(threshold, threshold + smoothWidth, luminance), and its
-  // 0.01 default is effectively a hard step: a sub-pixel highlight whose luminance jitters
-  // across the threshold snaps between no bloom and full bloom every frame. Widening the
-  // knee turns that pop into a ramp, which is what stops the glow flickering.
   bloomPass.highPassUniforms['smoothWidth'].value = look.bloomKnee;
   bloomPass.enabled = look.bloomStrength > 0;
   document.getElementById('vignetteOverlay').style.opacity = String(pheno ? 1 : formula.vignette);
@@ -3192,19 +2815,14 @@ function applyEnvIntensity() {
   requestRender();
 }
 
-// PROFILE. P(u,v)'s raw axial half-height is radialA()*shapeK(). Divide that out and
-// replace it with the requested absolute half-height. The hole can now change ring/tube
-// radii without silently moving the top and bottom of the torus.
 const heightScaleZ = () => axialA() / Math.max(1e-6, rawAxialA());
 
 let lastZScale = null;
 
-// There is no global group scale. Root and child height corrections happen in their own
-// frames, so descendants never inherit a root-space shear.
 function applyTorusHeight() {
   if (heightScaleZ() !== lastZScale) {
     lastZScale = heightScaleZ();
-    lastClipDistance = -1;   // the frustum still has to refit around the new extent
+    lastClipDistance = -1;
     requestRender();
   }
 }
@@ -3221,29 +2839,17 @@ function applySceneLook() {
   updateLegend();
 }
 
-// The scene is a ball of radius ~R0 about the origin. Fitting the frustum to it each
-// frame keeps the near/far ratio near 1:10 instead of 1:30000, which is what made
-// coincident surfaces flicker while orbiting.
-// Measured, not assumed: the attractor's reach grows as the torus shape approaches a
-// horn (children sit in wider gaps), so a fixed R0*1.35 would clip the egg at the near
-// plane. Recomputed from the actual node bounds whenever the structure is rebuilt.
 let structureRadial = R0 * 1.35;
 let structureAxial = R0 * 1.35;
 let lastClipDistance = -1;
 
-// nodePosScale is already measured after the root deformation. Applying heightScaleZ here
-// a second time grossly over-expanded the clipping volume for near-horn shapes.
 const sceneRadius = () => Math.max(structureRadial, structureAxial) * 1.15;
 
-// Radial and axial reach are tracked separately because only Z carries the profile scale;
-// collapsing them into one sphere would over-pad wide shapes and clip tall ones.
 function measureSceneRadius() {
   let radial = R0, axial = R0;
   const localReach = Math.max(R0, axialA(), childAxialA());
   for (let i = 0; i < nodeCount; i++) {
     const o = i * 4;
-    // Child axes are rotated arbitrarily, so use the largest local semi-extent as a safe
-    // orientation-independent bound rather than assuming every child remains R0 tall.
     const s = nodePosScale[o + 3] * localReach;
     const r = Math.hypot(nodePosScale[o], nodePosScale[o + 1]) + s;
     const z = Math.abs(nodePosScale[o + 2]) + s;
@@ -3252,7 +2858,7 @@ function measureSceneRadius() {
   }
   structureRadial = Math.max(radial, formula.phenomenology ? phenoReach.radial : 0);
   structureAxial = Math.max(axial, formula.phenomenology ? phenoReach.axial : 0);
-  lastClipDistance = -1;         // force the frustum to refit
+  lastClipDistance = -1;
 }
 
 function updateCameraClipping() {
@@ -3266,32 +2872,6 @@ function updateCameraClipping() {
   requestRender();
 }
 
-/* ==================================================================
- * PHENOMENOLOGY
- *
- * A figurative reading of the same structure. Nothing underneath changes: the site tables, the
- * breadth-first walk and the counter-rotation run exactly as before, and bodies are hung on them.
- *
- *   each fibre          -> a pair of arms whose hands meet at the outer rim, a wheel whose rim is
- *                          full of eyes, or a serpent swallowing its own tail
- *   each level-1 node   -> a face, a single great eye, or a lotus
- *   the bridge          -> a body grown from the hourglass wall, a spine on the axis, or nothing
- *
- * Every fibre of one family is the same curve turned about the axis, and the other family is its
- * mirror image in y (P(-u, v) mirrors P(u, v), and the profile and bridge warps are radial). So one
- * fibre is sculpted per torus and instanced 2m times: the plus family as Rz(2*pi*k/m + alpha), the
- * minus family as the mirrored geometry under Rz(2*pi*l/m - alpha). A figure is rigid in its own
- * frame, which is what lets the whole assembly animate without ever re-meshing.
- *
- * WEAVE. Along either family v = t, and plus fibre k meets minus fibre l where
- *     t = (b_l - a_k)/2 - alpha + n*pi,   so   m(t + alpha) = pi(l - k) + n*pi*m.
- * cos(m(t + alpha)) is therefore +-1 at every crossing, with the sign alternating from one crossing
- * to the next along a fibre. Displacing the plus family by +A cos(m(t + alpha)) along the surface
- * normal and the minus family by the negative of it lifts one body over the other at each crossing
- * and passes it under at the next: a plain weave that slides with the counter-rotation and never
- * lets two bodies through each other. The displacement runs in the vertex shader, so it is free.
- * ================================================================== */
-
 const PHENO_VISIONS = {
   vishvarupa: { fibre: 'arms', node: 'faces', bridge: 'body',
     note: 'Vishvarupa. The universal form with countless arms and faces.' },
@@ -3302,13 +2882,10 @@ const PHENO_VISIONS = {
 };
 const PHENO_CUSTOM_NOTE = 'A vision of your own. Change any of the three below.';
 
-// Forced while the mode is on: one level of nodes (the faces), and none of the line work, particles,
-// carrier shells or lattice, whose places the bodies take. The user's own values are kept aside.
 const PHENO_FORCED = {
   levels: 1, hideAllFibers: true, showParticles: false, showTori: false, showRootTorus: false,
   crossingLattice: false, nestFractalLevels: 1, nestedShells: false, nestParticles: false
 };
-// Controls that do nothing while the mode is on. Whole sections that do nothing are folded instead.
 const PHENO_DISABLED_IDS = [
   'levels', 'delta', 'childHeight', 'lodStrength', 'samples', 'budget',
   'nestFractalLevels', 'nestedShells', 'nestShellOpacity', 'nestParticles', 'nestColorMix', 'nestPlusColor', 'nestMinusColor',
@@ -3319,8 +2896,6 @@ const PHENO_DISABLED_IDS = [
 const PHENO_CONTROL_IDS = ['phenoVision', 'phenoFibre', 'phenoNode', 'phenoBridge', 'phenoDetail', 'phenoFibreSize',
   'phenoBodySize', 'phenoWeave', 'phenoEyesFollow', 'phenoOcclusion', 'phenoFlesh', 'phenoPaper'];
 
-// The light theme. Fixed rather than exposed: it is a palette, and the flesh and the paper are the
-// two colours worth choosing.
 const PHENO_LOOK = { exposure: 0.96, bloomStrength: 0, bloomRadius: 0.4, bloomThreshold: 0.94, bloomKnee: 0.1, envIntensity: 0.5 };
 const PHENO_TONES = { white: '#f3efe8', gray: '#9a958f', bone: '#e9e0d0', iris: '#56626b', pupil: '#1c1b1a' };
 const PHENO_SURFACE = {
@@ -3335,7 +2910,7 @@ const PHENO_KINDS = ['flesh', 'pale', 'white', 'gray', 'bone', 'eye'];
 
 let phenoActive = false;
 let phenoStash = null;
-let phenoParts = null;                 // per tree, swapped in and out with the rest of the tree state
+let phenoParts = null;
 let phenoReach = { radial: 0, axial: 0 };
 const phenoMaterials = new Set();
 const phenoModelCache = new Map();
@@ -3345,20 +2920,16 @@ const phenoTintUniform = { value: new THREE.Color() };
 const phenoIrisUniform = { value: new THREE.Color(PHENO_TONES.iris) };
 const phenoPupilUniform = { value: new THREE.Color(PHENO_TONES.pupil) };
 
-/* ---------------- sculpting kit: signed distances ---------------- */
-
 const sdSmin = (a, b, k) => { const h = Math.max(k - Math.abs(a - b), 0) / k; return Math.min(a, b) - h * h * k * 0.25; };
 const sdSmax = (a, b, k) => -sdSmin(-a, -b, k);
 const sdSphere = (x, y, z, r) => Math.sqrt(x * x + y * y + z * z) - r;
 
-// Inigo Quilez's ellipsoid bound: exact on the surface, a safe underestimate off it.
 function sdEllipsoid(x, y, z, a, b, c) {
   const k0 = Math.sqrt((x / a) ** 2 + (y / b) ** 2 + (z / c) ** 2);
   const k1 = Math.sqrt((x / (a * a)) ** 2 + (y / (b * b)) ** 2 + (z / (c * c)) ** 2);
   return k1 < 1e-12 ? -Math.min(a, b, c) : k0 * (k0 - 1) / k1;
 }
 
-// Round cone between two spheres (Quilez), the workhorse for limbs, fingers and jaws.
 function sdRoundCone(px, py, pz, ax, ay, az, bx, by, bz, r1, r2) {
   const bax = bx - ax, bay = by - ay, baz = bz - az;
   const l2 = bax * bax + bay * bay + baz * baz;
@@ -3378,25 +2949,17 @@ function sdRoundBox(x, y, z, bx, by, bz, r) {
   return Math.hypot(Math.max(qx, 0), Math.max(qy, 0), Math.max(qz, 0)) + Math.min(Math.max(qx, qy, qz), 0) - r;
 }
 
-// A rounded cylinder on the z axis.
 function sdRoundCylinder(x, y, z, r, h, round) {
   const dx = Math.hypot(x, y) - r + round, dz = Math.abs(z) - h + round;
   return Math.min(Math.max(dx, dz), 0) + Math.hypot(Math.max(dx, 0), Math.max(dz, 0)) - round;
 }
 
-/* ---------------- sculpting kit: surface nets ----------------
- * Naive surface nets: one vertex per cell the surface passes through, at the mean of its edge
- * crossings, and one quad per crossed grid edge. It keeps the smooth, even triangles a sculpture
- * wants, where marching cubes leaves slivers. A coarse pass first: wherever a coarse sample is
- * further from the surface than the coarse spacing, the fine samples around it cannot change sign
- * and copy it, so only the shell near the surface pays for the full sculpt. */
 const NET_CORNERS = [[0,0,0],[1,0,0],[0,1,0],[1,1,0],[0,0,1],[1,0,1],[0,1,1],[1,1,1]];
 const NET_EDGES = [[0,1],[2,3],[4,5],[6,7],[0,2],[1,3],[4,6],[5,7],[0,4],[1,5],[2,6],[3,7]];
 
 function meshSDF(sdf, min, max, res) {
   const span = Math.max(max[0] - min[0], max[1] - min[1], max[2] - min[2]);
   const h = span / res;
-  // surface nets need two clear cells round the shape, or a coarse grid leaves holes at its edge
   min = min.map(v => v - 2.5 * h); max = max.map(v => v + 2.5 * h);
   const nx = Math.ceil((max[0] - min[0]) / h) + 1, ny = Math.ceil((max[1] - min[1]) / h) + 1, nz = Math.ceil((max[2] - min[2]) / h) + 1;
   const field = new Float32Array(nx * ny * nz);
@@ -3441,7 +3004,6 @@ function meshSDF(sdf, min, max, res) {
     pos.push(min[0] + (i + sx / n) * h, min[1] + (j + sy / n) * h, min[2] + (k + sz / n) * h);
   }
 
-  // smooth normals straight from the field's gradient
   const count = pos.length / 3;
   const nrm = new Float32Array(count * 3);
   const e = h * 0.5;
@@ -3456,7 +3018,6 @@ function meshSDF(sdf, min, max, res) {
   const cellAt = (i, j, k) => cell[i + (nx - 1) * (j + (ny - 1) * k)];
   const quad = (a, b, c, d) => {
     if (a < 0 || b < 0 || c < 0 || d < 0) return;
-    // orient each quad by the field gradient rather than trusting a winding table
     const ux = pos[b * 3] - pos[a * 3], uy = pos[b * 3 + 1] - pos[a * 3 + 1], uz = pos[b * 3 + 2] - pos[a * 3 + 2];
     const wx = pos[c * 3] - pos[a * 3], wy = pos[c * 3 + 1] - pos[a * 3 + 1], wz = pos[c * 3 + 2] - pos[a * 3 + 2];
     const fx = uy * wz - uz * wy, fy = uz * wx - ux * wz, fz = ux * wy - uy * wx;
@@ -3476,10 +3037,6 @@ function meshSDF(sdf, min, max, res) {
   return { position: Float32Array.from(pos), normal: nrm, index: Uint32Array.from(index) };
 }
 
-/* ---------------- part assembly ----------------
- * A figure is a list of parts, each a plain mesh with a material kind. Parts carry every attribute
- * the pheno shaders read, so one merged geometry can hold flesh, porcelain and eyes as groups and be
- * drawn as a single instanced mesh with a material per group. */
 function phenoPart(kind, mesh, extra = {}) {
   const n = mesh.position.length / 3;
   const part = {
@@ -3493,7 +3050,6 @@ function phenoPart(kind, mesh, extra = {}) {
   return part;
 }
 
-// Apply a Matrix4 to a part's points, normals and eye frame. Scalar weave fields pass through.
 function transformPart(part, matrix) {
   const out = { ...part, position: new Float32Array(part.position), normal: new Float32Array(part.normal) };
   const nm = new THREE.Matrix3().getNormalMatrix(matrix);
@@ -3516,7 +3072,6 @@ function transformPart(part, matrix) {
 const fill3 = (n, x, y, z) => { const a = new Float32Array(n * 3); for (let i = 0; i < n; i++) { a[i * 3] = x; a[i * 3 + 1] = y; a[i * 3 + 2] = z; } return a; };
 const fill1 = (n, value) => new Float32Array(n).fill(value);
 
-// Merge parts into one geometry, grouped by material kind in PHENO_KINDS order.
 function assembleParts(parts, weave) {
   const kinds = PHENO_KINDS.filter(k => parts.some(p => p.kind === k));
   let vertices = 0, indices = 0;
@@ -3565,8 +3120,6 @@ function assembleParts(parts, weave) {
   return { geometry, kinds };
 }
 
-// The minus family is the plus family reflected in y. Reflection reverses winding, so the
-// triangles are turned back round as well.
 function mirrorGeometry(source) {
   const g = source.clone();
   for (const name of ['position', 'normal', 'aEyeC', 'aEyeF', 'aSN']) {
@@ -3588,9 +3141,6 @@ function sphereMesh(radius, widthSegments, heightSegments) {
 
 const eyeAttrs = (count, c, f) => ({ eyeC: fill3(count, c[0], c[1], c[2]), eyeF: fill3(count, f[0], f[1], f[2]) });
 
-/* ---------------- the models ----------------
- * Each is sculpted once per detail level and cached. High detail meshes a fine grid with smooth
- * normals; low poly meshes a coarse one and is drawn flat-shaded, so it reads as faceted on purpose. */
 const phenoHigh = () => formula.phenoDetail !== 'low';
 
 function phenoModel(name) {
@@ -3600,10 +3150,7 @@ function phenoModel(name) {
   return phenoModelCache.get(key);
 }
 
-// FACE. Serene and symmetrical, after the temple heads it is meant to recall: almond eyes under a
-// soft brow, a long nose, closed full lips. About 2 units across, looking along +z with +y up; the
-// skull sits behind z = 0, which is laid on the torus surface, so only the face stands out of it.
-const FACE_DEPTH = 0.66;   // how far the skull sits behind the surface
+const FACE_DEPTH = 0.66;
 function sdFace(x, y, z) {
   z += FACE_DEPTH;
   const ax = Math.abs(x);
@@ -3613,22 +3160,17 @@ function sdFace(x, y, z) {
   d = sdSmin(d, sdEllipsoid(x, y + 1.0, z - 0.5, 0.23, 0.19, 0.22), 0.16);
   d = sdSmin(d, sdEllipsoid(ax - 0.46, y + 0.12, z - 0.5, 0.25, 0.19, 0.22), 0.2);
   d = sdSmin(d, sdEllipsoid(x, y - 0.32, z - 0.65, 0.66, 0.12, 0.2), 0.18);
-  // sockets
   const ex = ax - 0.31, ey = y - 0.07, ez = z - 0.63;
   d = sdSmax(d, -sdEllipsoid(ex, ey, ez - 0.03, 0.25, 0.17, 0.2), 0.08);
-  // nose: a long straight bridge from the brow, a soft tip, small wings
   d = sdSmin(d, sdRoundCone(x, y, z, 0, 0.22, 0.79, 0, -0.32, 1.0, 0.075, 0.105), 0.11);
   d = sdSmin(d, sdEllipsoid(x, y + 0.37, z - 0.98, 0.12, 0.1, 0.11), 0.06);
   d = sdSmin(d, sdEllipsoid(ax - 0.12, y + 0.41, z - 0.87, 0.09, 0.075, 0.08), 0.05);
   d = sdSmax(d, -sdEllipsoid(ax - 0.07, y + 0.475, z - 0.91, 0.04, 0.026, 0.05), 0.02);
-  // lips, full and closed, with the faint smile of the temple heads
   d = sdSmin(d, sdEllipsoid(x, y + 0.6, z - 0.865, 0.22, 0.065, 0.11), 0.06);
   d = sdSmin(d, sdEllipsoid(x, y + 0.715, z - 0.84, 0.19, 0.07, 0.11), 0.06);
   const smile = 0.018 * (x / 0.2) ** 2;
   d = sdSmax(d, -sdRoundBox(x, y + 0.655 - smile, z - 0.96, 0.2, 0.009, 0.12, 0.007), 0.018);
-  // long ears, the lobes drawn down
   d = sdSmin(d, sdEllipsoid(ax - 0.8, y + 0.06, z + 0.02, 0.09, 0.36, 0.15), 0.08);
-  // lids: a shell round each eyeball, kept only outside the almond opening
   const lx = ax - 0.31, ly = y - 0.06, lz = z - 0.64;
   const open = 0.112 * Math.max(0, 1 - (lx / 0.235) ** 2) + 0.012;
   const lid = Math.max(Math.abs(sdSphere(lx, ly, lz, 0.19)) - 0.024, open - Math.abs(ly + 0.006), -(lz + 0.02));
@@ -3636,12 +3178,9 @@ function sdFace(x, y, z) {
   d = Math.max(d, -sdSphere(lx, ly, lz, 0.171));
   return d;
 }
-// Hair: a close cap of small curls over the crown, with a raised knot at the top, as on the
-// temple heads. Grey against the flesh, so a face reads as a head even when it is seen side on.
 function sdHair(x, y, z) {
   z += FACE_DEPTH;
   const cap = sdEllipsoid(x, y - 0.18, z + 0.04, 0.88, 1.05, 0.92);
-  // the hairline: low over the temples, rising over the brow and falling behind the ears
   const hairline = 0.4 - 0.16 * Math.abs(x) + 0.16 * Math.max(0, z - 0.25) - 0.42 * Math.max(0, -z + 0.05);
   let d = sdSmax(cap, hairline - y, 0.06);
   d = sdSmin(d, sdEllipsoid(x, y - 1.08, z + 0.1, 0.36, 0.26, 0.34), 0.14);
@@ -3663,10 +3202,8 @@ function buildFaceModel(high) {
   return assembleParts(parts, false);
 }
 
-// GREAT EYE. One eye the size of a face: a deep almond of lids, a fold above, a soft cushion below.
 function sdGreatEye(x, y, z) {
   const R = 0.6;
-  // a lens of flesh round the ball, cut through by an almond, with a fold above the upper lid
   let d = sdEllipsoid(x, y + 0.02, z + 0.14, 1.22, 0.86, 0.6);
   const open = 0.4 * Math.pow(Math.max(0, 1 - (x / 1.02) ** 2), 0.75) - 0.03 * x;
   d = sdSmax(d, -Math.max(Math.abs(y - 0.03) - open, -z), 0.05);
@@ -3684,8 +3221,6 @@ function buildGreatEyeModel(high) {
   ], false);
 }
 
-// LOTUS. Three rings of petals round a seed pod, opening along +z. The petals are thin shells drawn
-// two-sided, white at the base and flushed with the flesh tone toward the tips.
 function petalMesh(length, width, tilt, cup, curl, azimuth, ns, nw) {
   const position = [], index = [], tint = [];
   const ca = Math.cos(azimuth), sa = Math.sin(azimuth), ct = Math.cos(tilt), st = Math.sin(tilt);
@@ -3695,7 +3230,6 @@ function petalMesh(length, width, tilt, cup, curl, azimuth, ns, nw) {
     for (let j = 0; j <= nw; j++) {
       const wv = j / nw * 2 - 1;
       let px = wv * half, py = s * length, pz = cup * wv * wv * half + curl * s * s * length;
-      // tilt up from the surface plane, then turn to the petal's azimuth
       const y1 = py * ct - pz * st, z1 = py * st + pz * ct;
       position.push(px * ca - y1 * sa, px * sa + y1 * ca, z1 + 0.04);
       tint.push(0.75 * Math.pow(Math.max(0, (s - 0.45) / 0.55), 1.4));
@@ -3717,7 +3251,6 @@ function petalMesh(length, width, tilt, cup, curl, azimuth, ns, nw) {
 function sdLotusPod(x, y, z) {
   let d = sdRoundCylinder(x, y, z - 0.18, 0.28, 0.17, 0.06);
   d = sdSmax(d, -sdEllipsoid(x, y, z - 0.42, 0.24, 0.24, 0.07), 0.04);
-  // seed holes in a ring and one at the centre
   for (let k = 0; k < 7; k++) {
     const a = k * TAU / 7;
     d = sdSmax(d, -sdSphere(x - 0.15 * Math.cos(a), y - 0.15 * Math.sin(a), z - 0.33, 0.04), 0.012);
@@ -3742,8 +3275,6 @@ function buildLotusModel(high) {
   return assembleParts(parts, false);
 }
 
-// PRAYING HANDS. Two hands pressed palm to palm (anjali), in units of the wrist radius. The forearms
-// arrive along -x and +x, the wrists bend, and the fingers point along +y, out of the torus.
 function sdHandA(x, y, z) {
   let d = sdRoundCone(x, y, z, -3.3, 0, 0, -0.95, 0.08, 0, 0.88, 0.9);
   d = sdSmin(d, sdEllipsoid(x + 0.6, y - 0.62, z, 0.58, 0.95, 1.05), 0.5);
@@ -3754,26 +3285,22 @@ function sdHandA(x, y, z) {
   }
   d = sdSmin(d, sdRoundCone(x, y, z, -0.62, 1.15, 1.02, -0.42, 2.15, 1.42, 0.42, 0.35), 0.28);
   d = sdSmin(d, sdRoundCone(x, y, z, -0.42, 2.15, 1.42, -0.3, 2.95, 1.46, 0.35, 0.29), 0.1);
-  return Math.max(d, x + 0.025);   // flat palm at the contact plane
+  return Math.max(d, x + 0.025);
 }
 const sdPrayingHands = (x, y, z) => sdHandA(-Math.abs(x), y, z);
-const HAND_STUB = 1.9;   // where the arm tube hands over to the hands' own forearm stub
+const HAND_STUB = 1.9;
 
 function buildHandsModel(high) {
   return meshSDF(sdPrayingHands, [-3.4, -1.15, -1.35], [3.4, 6.5, 2.05], high ? 100 : 24);
 }
 
-// SERPENT HEAD. In units of the neck radius, travelling along +x with the back along +y. The jaws
-// stand open round the tail, which runs straight down the x axis into the mouth.
 function sdSerpentHead(x, y, z) {
   const az = Math.abs(z);
-  // the neck narrows into a broad, flat head with jowls behind the eyes and a tapering snout
   let d = sdRoundCone(x, y, z, -2.5, 0, 0, -0.55, 0, 0, 0.9, 0.76);
   const skull = sdSmin(sdEllipsoid(x - 0.35, y - 0.08, z, 1.42, 0.56, 1.16), sdEllipsoid(x - 1.45, y - 0.1, z, 0.86, 0.36, 0.56), 0.35);
   d = sdSmin(d, skull, 0.35);
   d = sdSmin(d, sdEllipsoid(x + 0.05, y + 0.1, az - 0.6, 0.66, 0.42, 0.46), 0.25);
   d = sdSmin(d, sdEllipsoid(x - 0.65, y + 0.48, z, 1.28, 0.24, 0.84), 0.2);
-  // the jaws stand open round the tail, which runs straight down the x axis into the mouth
   const gape = Math.max(Math.abs(y + 0.1) - 0.04 - 0.25 * Math.max(x + 0.25, 0), -(x + 0.25));
   d = sdSmax(d, -gape, 0.05);
   d = sdSmin(d, sdEllipsoid(x - 0.75, y - 0.43, az - 0.5, 0.42, 0.12, 0.2), 0.12);
@@ -3786,7 +3313,6 @@ const SERPENT_NECK = 1.85;
 
 function buildSerpentHeadModel(high) {
   const mesh = meshSDF(sdSerpentHead, [-2.6, -0.9, -1.35], [2.6, 0.8, 1.35], high ? 100 : 22);
-  // the same pale grey as the body, a darker crown over the head, a flesh-tinted throat
   const n = mesh.position.length / 3, color = new Float32Array(n * 3), tint = new Float32Array(n);
   const base = new THREE.Color('#e6e1da'), dark = new THREE.Color('#77726c'), c = new THREE.Color();
   for (let i = 0; i < n; i++) {
@@ -3804,7 +3330,6 @@ function buildSerpentHeadModel(high) {
   return { parts };
 }
 
-// RIM EYE. A small almond of lids round an eyeball, for the rims of the wheels.
 function sdRimEye(x, y, z) {
   const open = 0.62 * Math.max(0, 1 - (x / 1.32) ** 2);
   let d = sdEllipsoid(x, y, z + 0.32, 1.62, 1.05, 0.62);
@@ -3819,7 +3344,6 @@ function buildRimEyeModel(high) {
   return { lids: mesh, ball };
 }
 
-// VERTEBRA. Body, arch, spinous and transverse processes, on the z axis, back toward -x.
 function sdVertebra(x, y, z) {
   x -= 0.9;
   let d = sdRoundCylinder(x, y, z, 1.0, 0.36, 0.14);
@@ -3848,14 +3372,7 @@ const PHENO_MODELS = {
   serpentHead: buildSerpentHeadModel, rimEye: buildRimEyeModel, vertebra: buildVertebraModel
 };
 
-/* ---------------- the body: the bridge wall, thickened ----------------
- * In each torus's local frame, the hourglass inner wall at height z has radius
- *     wall(z) = Rc - lam*ar - (1 - lam)*ar*sqrt(1 - (z/az)^2)
- * for bridge lam (0 hourglass, 1 cylinder). The body is a band about that wall, rounded into a lip
- * at the top and bottom: a rounded box in (distance from the wall, height), with the wall's slope
- * divided out so it stays close to a true distance. The same function, in JS and GLSL, shapes the
- * body's lathe, lets the fibres grow out of it, and discards whatever of them is inside it. */
-const PHENO_BODY_GLSL = /* glsl */`
+const PHENO_BODY_GLSL = `
   uniform float uBodyRc, uBodyAr, uBodyAz, uBodyLam, uBodyMid, uBodyHalf, uBodyCap, uBodyEps;
   float bodySdf(vec3 p) {
     float r = length(p.xy);
@@ -3881,8 +3398,8 @@ function phenoBodySdf(b, x, y, z) {
 
 function phenoBodyParams(waistRadius) {
   const Rc = ringR(), ar = radialA(), az = axialA(), lam = Math.min(1, Math.max(0, formula.bridge));
-  const waist = Rc - ar;                               // the wall's radius at z = 0
-  const outer = Math.max(0.04 * ar, waistRadius * 0.9);  // just covers the fibres that run up the wall
+  const waist = Rc - ar;
+  const outer = Math.max(0.04 * ar, waistRadius * 0.9);
   const base = 0.09 * ar;
   const inner = base + formula.phenoBodySize * Math.max(0, waist - outer - base - 0.015 * ar);
   return {
@@ -3892,7 +3409,6 @@ function phenoBodyParams(waistRadius) {
   };
 }
 
-// The body's outline, found by bisection on its own distance field, turned on a lathe.
 function buildBodyGeometry(b) {
   const high = phenoHigh();
   const side = high ? 72 : 8, lip = high ? 28 : 4;
@@ -3915,7 +3431,7 @@ function buildBodyGeometry(b) {
   for (let i = 1; i < lip; i++) { const a = -Math.PI * i / lip; pts.push(root(wallMid(-top), -top, Math.cos(a), Math.sin(a))); }
   pts.push(pts[0].clone());
   const g = new THREE.LatheGeometry(pts, high ? 160 : 18);
-  g.rotateX(Math.PI / 2);   // LatheGeometry turns about y; the torus axis is z
+  g.rotateX(Math.PI / 2);
   const n = g.attributes.position.count;
   for (const [name, size, value] of [['color', 3, 1], ['aTint', 1, 0], ['aEyeC', 3, 0]]) g.setAttribute(name, new THREE.BufferAttribute(new Float32Array(n * size).fill(value), size));
   g.setAttribute('aEyeF', new THREE.BufferAttribute(fill3(n, 0, 0, 1), 3));
@@ -3924,9 +3440,7 @@ function buildBodyGeometry(b) {
   return g;
 }
 
-/* ---------------- materials ---------------- */
-
-const PHENO_EYE_GLSL = /* glsl */`
+const PHENO_EYE_GLSL = `
   {
     vec3 eyeDir = normalize(vEyeP - vEyeC);
     vec3 fwd = normalize(vEyeF);
@@ -3955,9 +3469,6 @@ function phenoKindColour(kind) {
   return new THREE.Color(PHENO_TONES[kind]);
 }
 
-// One factory for every pheno surface. The options inject, in object space and before the
-// instance transform, the weave displacement and the discard against the body, and for eyes an
-// iris that turns toward the viewer.
 function phenoMaterial(kind, { weave = null, body = null, side = THREE.FrontSide } = {}) {
   const eye = kind === 'eye';
   const material = new THREE.MeshPhysicalMaterial({
@@ -4005,7 +3516,6 @@ function phenoMaterial(kind, { weave = null, body = null, side = THREE.FrontSide
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\n' + vHead.join('\n'))
       .replace('#include <begin_vertex>', '#include <begin_vertex>\n' + vBody.join('\n'));
-    // declarations go in just before main(): not every stock fragment shader includes <common>
     shader.fragmentShader = shader.fragmentShader
       .replace('void main() {', fHead.join('\n') + '\nvoid main() {\n' + fMain.join('\n'))
       .replace('#include <color_fragment>', '#include <color_fragment>\n' + fColour.join('\n'));
@@ -4027,8 +3537,6 @@ function refreshPhenoColours() {
   requestRender();
 }
 
-/* ---------------- one fibre, in the local frame of its torus ---------------- */
-
 const _pa = new THREE.Vector3(), _pb = new THREE.Vector3(), _pc = new THREE.Vector3(), _pd = new THREE.Vector3();
 
 function phenoSurfacePoint(u, v, out = new THREE.Vector3()) {
@@ -4036,7 +3544,6 @@ function phenoSurfacePoint(u, v, out = new THREE.Vector3()) {
   return deformVec(out.x, out.y, out.z, out, 0);
 }
 
-// Position, tangent, outward normal and the local scale of the projection along plus fibre 0.
 function phenoFrame(t) {
   const h = 1e-4;
   const f = { t, p: phenoSurfacePoint(t, t), T: new THREE.Vector3(), N: new THREE.Vector3(), B: new THREE.Vector3(), lam: 0 };
@@ -4051,7 +3558,6 @@ function phenoFrame(t) {
   return f;
 }
 
-// t values from t0 to t1, evenly spaced in arc length along the fibre.
 function arcSamples(t0, t1, n) {
   const fine = 2048, len = new Float64Array(fine + 1), prev = phenoSurfacePoint(t0, t0, new THREE.Vector3()), cur = new THREE.Vector3();
   for (let i = 1; i <= fine; i++) {
@@ -4078,12 +3584,6 @@ function tAtChord(t0, dir, distance) {
   return t0 + dir * lo;
 }
 
-// A tube round the fibre, one ring of points per sample. Without a body each ring is the
-// cross-section itself. With one, the surface is the smooth union of tube and body, so a limb grows
-// out of the body on a fillet instead of meeting it at a seam. Each ring is then traced densely
-// round that union and kept only where it stands clear of the body: the ring opens into an arc whose
-// two ends rest on the body's surface. Every ring has the same number of points, starting from the
-// side that faces the body, so the open arcs and the full circles join up without a seam showing.
 function phenoTube({ ts, closed, around, radius, section = () => 1, colour = null, tint = null, amp, body = null, fillet = 0.55 }) {
   const rings = ts.length, cols = around + 1;
   const position = new Float32Array(rings * cols * 3), color = new Float32Array(rings * cols * 3);
@@ -4101,7 +3601,6 @@ function phenoTube({ ts, closed, around, radius, section = () => 1, colour = nul
     const rho = radius(f, i), a = amp(f, i, rho);
     const k = fillet * rho;
     const near = body && phenoBodySdf(body, f.p.x, f.p.y, f.p.z) < 3 * rho + 2 * k;
-    // the side of the ring that faces the body (or, away from it, the inside of the torus)
     let th0 = -Math.PI / 2;
     if (near) {
       const e = 1e-3, p = f.p;
@@ -4135,10 +3634,8 @@ function phenoTube({ ts, closed, around, radius, section = () => 1, colour = nul
         ringX[s] = q.x; ringY[s] = q.y; ringZ[s] = q.z; ringTh[s] = th;
         ringH[s] = phenoBodySdf(body, q.x, q.y, q.z);
       }
-      // the clear arc is the run around the far side, th0 + pi
       const mid = DENSE >> 1;
       if (ringH[mid] <= eps) {
-        // buried in the body: collapse the ring onto one hidden point
         from = to = th0 + Math.PI; closedRing = false;
       } else {
         let a0 = mid, b0 = mid;
@@ -4158,7 +3655,6 @@ function phenoTube({ ts, closed, around, radius, section = () => 1, colour = nul
     }
     whole[i] = closedRing ? 1 : 0;
 
-    // spread the ring's points evenly by arc length between its two ends
     const fine = 96, fx = [], fy = [], fz = [], fl = [0], fth = [];
     for (let s = 0; s <= fine; s++) {
       const th = from + (to - from) * s / fine;
@@ -4205,7 +3701,6 @@ function phenoTube({ ts, closed, around, radius, section = () => 1, colour = nul
   g.computeVertexNormals();
   const normal = g.attributes.normal.array.slice();
   g.dispose();
-  // a full ring's first and last points are one point: give them one normal
   for (let i = 0; i < rings; i++) {
     if (!whole[i]) continue;
     const a = i * cols * 3, b = (i * cols + around) * 3;
@@ -4217,8 +3712,6 @@ function phenoTube({ ts, closed, around, radius, section = () => 1, colour = nul
   return { mesh, color, tint: tintA, t: tA, sn: snA, amp: ampA, w: wA, theta: thA, reachR, reachZ };
 }
 
-// Place a model part along the fibre at t, in the frame (x: tangent, y: normal, z: tangent x normal),
-// scaled by s. Its weave parameter follows the model's x, so the part bends with the tube it joins.
 function partAlongFibre(part, f, s, { tSpan = 0, xSpan = 1, amp, w = 1 }) {
   const matrix = new THREE.Matrix4().makeBasis(f.T, f.N, new THREE.Vector3().crossVectors(f.T, f.N)).scale(new THREE.Vector3(s, s, s)).setPosition(f.p);
   const placed = transformPart(part, matrix);
@@ -4227,14 +3720,11 @@ function partAlongFibre(part, f, s, { tSpan = 0, xSpan = 1, amp, w = 1 }) {
   return { ...placed, t, sn: f.N.toArray(), amp, w };
 }
 
-/* ---------------- the three fibre figures ---------------- */
-
 function phenoFibreUnit() {
   const lamRef = phenoFrame(0).lam;
   return { lamRef, unit: formula.phenoFibreSize * Math.PI / (Math.SQRT2 * formula.m) * lamRef };
 }
 
-// Where the fibre leaves the body, searching out from tStart in direction dir.
 function phenoBodyExit(body, tStart, dir) {
   const inside = t => { const p = phenoSurfacePoint(t, t, _pa); return phenoBodySdf(body, p.x, p.y, p.z) < 0; };
   if (!body || !inside(tStart)) return tStart;
@@ -4246,10 +3736,6 @@ function phenoBodyExit(body, tStart, dir) {
 
 const bump = (x, c, w) => Math.exp(-(((x - c) / w) ** 2));
 
-// ARMS. The fibre is cut where it crosses the outer rim: from there one arm runs under the torus and
-// one over it, both back to the body at the bridge, where they grow out of it as shoulders. The
-// hands meet palm to palm at the rim. The cut sits half a crossing past the equator so that in the
-// rest pose no hands of the other family land on top of these.
 function armsFigure(body) {
   const m = formula.m, high = phenoHigh();
   const { lamRef, unit } = phenoFibreUnit();
@@ -4262,7 +3748,6 @@ function armsFigure(body) {
   const shoulderU = body ? phenoBodyExit(body, tMid, +1) : tMid;
   const arc = arcSamples(tA, tB, high ? 360 : 52);
   const lenAt = arc.lengthAt, Lw0 = lenAt(tA), Lw1 = lenAt(tB), LsL = lenAt(shoulderL), LsU = lenAt(shoulderU);
-  // f = 0 at the shoulder, 1 at the wrist, measured in arc length so the elbow falls mid-limb
   const anat = t => {
     const L = lenAt(t);
     let fr;
@@ -4298,19 +3783,14 @@ function armsFigure(body) {
   return { parts, reachR: Math.max(tube.reachR, handReach), reachZ: tube.reachZ + 6.4 * rhoW * Math.abs(fH.N.z) };
 }
 
-// WHEELS. The fibre itself is the rim: a porcelain tyre lying in the surface, its crown set with eyes
-// at even steps of its own scale, and spokes to a hub at the circle's centre. Hopf fibres are linked
-// circles, each passing once through every other, so these are wheels within wheels in the literal
-// sense.
 function wheelsFigure(body) {
   const m = formula.m, high = phenoHigh();
   const { lamRef, unit } = phenoFibreUnit();
   const rimUnit = unit * 0.62;
   const scale = f => Math.pow(f.lam / lamRef, 0.4);
   const arc = arcSamples(0, TAU, high ? 420 : 60);
-  arc.ts = arc.ts.slice(0, -1);   // closed loop: the last sample is the first
+  arc.ts = arc.ts.slice(0, -1);
   const rimSection = th => {
-    // a flattened tyre: broad across the surface, a raised bead at each edge
     const c = Math.cos(th), s = Math.sin(th);
     const base = 1 / Math.pow(Math.pow(Math.abs(c) / 1.35, 4) + Math.pow(Math.abs(s) / 0.62, 4), 0.25);
     const bead = 0.08 * Math.exp(-(((Math.abs(th % Math.PI) - 0.62) / 0.22) ** 2));
@@ -4323,7 +3803,6 @@ function wheelsFigure(body) {
   });
   const parts = [phenoPart('white', tube.mesh, { t: tube.t, sn: tube.sn, amp: tube.amp, w: tube.w })];
 
-  // eyes, evenly spaced in the rim's own scale so they crowd where the rim is small
   const rimEye = phenoModel('rimEye');
   const steps = 2048, rel = new Float64Array(steps + 1);
   let prev = phenoSurfacePoint(0, 0, new THREE.Vector3()), cur = new THREE.Vector3();
@@ -4341,7 +3820,6 @@ function wheelsFigure(body) {
     const f = phenoFrame(TAU * j / steps);
     if (body && phenoBodySdf(body, f.p.x, f.p.y, f.p.z) < rimUnit) continue;
     const rho = rimUnit * scale(f), s = 0.72 * rho;
-    // the eye looks out of the surface: x along the rim, z along the normal
     const lift = 0.5 * rho;
     const frame = { ...f, p: f.p.clone().addScaledVector(f.N, lift), T: f.T, N: f.B.clone().negate() };
     const basis = new THREE.Matrix4().makeBasis(f.T, new THREE.Vector3().crossVectors(f.N, f.T), f.N).scale(new THREE.Vector3(s, s, s)).setPosition(frame.p);
@@ -4350,7 +3828,6 @@ function wheelsFigure(body) {
     for (const part of [lids, ball]) parts.push({ ...part, t: f.t, sn: f.N.toArray(), amp: 1.15 * rho, w: 1 });
   }
 
-  // spokes and hub: the centre is the mean of points evenly spaced along the loop
   const hub = new THREE.Vector3();
   for (const t of arc.ts) hub.add(phenoSurfacePoint(t, t, _pa));
   hub.multiplyScalar(1 / arc.ts.length);
@@ -4376,8 +3853,6 @@ function wheelsFigure(body) {
   return { parts, reachR: tube.reachR + rimUnit, reachZ: tube.reachZ + rimUnit };
 }
 
-// SERPENTS. Each fibre is an ouroboros. The head sits on the outer rim travelling along +t; the
-// body runs all the way round behind it and its tail runs forward into the open jaws.
 function serpentsFigure(body) {
   const m = formula.m, high = phenoHigh();
   const { lamRef, unit } = phenoFibreUnit();
@@ -4400,7 +3875,6 @@ function serpentsFigure(body) {
     radius: (f, i) => sUnit * scale(f) * profile(i / (arc.ts.length - 1)) * (i > arc.ts.length - 3 ? 0.86 : 1),
     section: th => 1 / Math.sqrt(Math.cos(th) ** 2 + (Math.sin(th) / 0.82) ** 2),
     amp: (f, i, rho) => 1.05 * sUnit * scale(f),
-    // a chain of grey diamonds down the back, a pale flesh belly
     colour: (f, th, i) => {
       const along = arc.length * i / (arc.ts.length - 1) / (sUnit * scale(f) * 2.2);
       const across = Math.abs(Math.atan2(Math.sin(th - Math.PI / 2), Math.cos(th - Math.PI / 2)));
@@ -4418,19 +3892,15 @@ function serpentsFigure(body) {
   return { parts, reachR: tube.reachR + rhoN * 1.2, reachZ: tube.reachZ + rhoN };
 }
 
-/* ---------------- per-tree build and per-frame placement ---------------- */
-
 function phenoNodeModel() {
   return phenoModel({ faces: 'face', eyes: 'eye', lotus: 'lotus' }[formula.phenoNode] || 'face');
 }
-// node size as a fraction of the space its gap leaves it
 const PHENO_NODE_FIT = { faces: 0.66, eyes: 0.68, lotus: 0.74 };
 
 function buildPhenoTree(group) {
   const parts = { fibres: [], node: null, bridge: null, spine: null, body: null, alpha: { value: structureAlpha }, m: { value: formula.m } };
   const m = formula.m;
 
-  // the body is measured against the arms' shoulders, so its size is settled first
   let body = null;
   if (formula.phenoBridge === 'body') {
     const { lamRef, unit } = phenoFibreUnit();
@@ -4444,7 +3914,6 @@ function buildPhenoTree(group) {
     uBodyMid: { value: body.mid }, uBodyHalf: { value: body.half }, uBodyCap: { value: body.cap }, uBodyEps: { value: body.eps }
   } : null;
 
-  // fibres
   const figure = (formula.phenoFibre === 'wheels' ? wheelsFigure : formula.phenoFibre === 'serpents' ? serpentsFigure : armsFigure)(body);
   const { geometry, kinds } = assembleParts(figure.parts, true);
   for (const sign of [1, -1]) {
@@ -4458,13 +3927,11 @@ function buildPhenoTree(group) {
     parts.fibres.push({ mesh, sign });
   }
 
-  // first-level nodes
   const range = depthRanges[1];
   if (range && range[1] > range[0]) {
     const model = phenoNodeModel();
     const lotus = formula.phenoNode === 'lotus';
     const materials = model.kinds.map(kind => phenoMaterial(kind, { side: lotus && kind === 'white' ? THREE.DoubleSide : THREE.FrontSide }));
-    // petals are paper thin, which screen-space occlusion reads as deep creases: leave them out
     if (lotus) materials.forEach(material => { material.userData.noOcclusion = true; });
     const mesh = new THREE.InstancedMesh(model.geometry, materials, range[1] - range[0]);
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -4473,7 +3940,6 @@ function buildPhenoTree(group) {
     parts.node = { mesh, start: range[0], end: range[1], fit: PHENO_NODE_FIT[formula.phenoNode] || 0.8 };
   }
 
-  // bridge
   if (body) {
     const mesh = new THREE.Mesh(buildBodyGeometry(body), [phenoMaterial('flesh')]);
     group.add(mesh);
@@ -4502,8 +3968,6 @@ const _phM = new THREE.Matrix4(), _phQ = new THREE.Quaternion(), _phQ2 = new THR
 const _phP = new THREE.Vector3(), _phS = new THREE.Vector3(), _phZ = new THREE.Vector3(0, 0, 1);
 const PHENO_FLIP = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI);
 
-// Per frame (whenever the structure moved): the fibre figures turn by +-alpha, the nodes follow
-// their sites, the spine twists. Runs inside the current tree's context like syncGPU.
 function syncPheno() {
   const parts = phenoParts;
   if (!parts) return;
@@ -4531,7 +3995,6 @@ function syncPheno() {
       _phP.set(nodePosScale[o], nodePosScale[o + 1], nodePosScale[o + 2]);
       let size = nodePosScale[o + 3] * R0 * fit;
       if (body) {
-        // nodes sliding into the body sink into it rather than cutting through it
         local.copy(_phP).applyQuaternion(inv).multiplyScalar(1 / rs);
         size *= THREE.MathUtils.smoothstep(phenoBodySdf(body, local.x, local.y, local.z), 0, 1.4 * size / rs);
       }
@@ -4561,11 +4024,8 @@ function syncPheno() {
   }
 }
 
-/* ---------------- the light theme ---------------- */
-
 let paperEnvironment = null;
 
-// A neutral studio for porcelain and skin: a pale sky, a warm grey floor, soft white cards.
 function buildPaperEnvironment() {
   const w = 1024, h = 512;
   const canvas = document.createElement('canvas');
@@ -4604,9 +4064,6 @@ function buildPaperEnvironment() {
   return env;
 }
 
-// The gold scene is lit from fixed points above it, which leaves the default view from below in
-// half shadow; gold forgives that, porcelain does not. In this mode a key light rides with the
-// camera, up and to the left of it, so every view gets the same sculptor's light.
 const phenoKey = new THREE.DirectionalLight(0xffffff, 0);
 scene.add(phenoKey, phenoKey.target);
 const _phKeyOffset = new THREE.Vector3();
@@ -4632,11 +4089,6 @@ function updatePhenoLight() {
   phenoKey.target.updateMatrixWorld();
 }
 
-// Ambient occlusion reads the scene's normals and depth. GTAOPass draws those itself with one
-// override material, which knows nothing of the weave: the bodies would be shaded where they rest
-// rather than where they are, and the lifted hands leave grey ghosts behind. So the geometry pass
-// is drawn here instead, each surface through a normal-material twin that carries its own
-// displacement and discard, and handed to GTAO as its G-buffer.
 const phenoNormalTwins = new WeakMap();
 function normalTwin(material) {
   let twin = phenoNormalTwins.get(material);
@@ -4694,8 +4146,6 @@ function ensureGtao() {
     minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, type: THREE.HalfFloatType, depthTexture
   });
   gtaoPass = new GTAOPass(scene, camera, size.x, size.y);
-  // GTAOPass resizes and reads a normalRenderTarget of its own even when handed a G-buffer, so ours
-  // takes that place before the G-buffer is set, and the two stay in step on resize
   gtaoPass.normalRenderTarget.dispose();
   gtaoPass.normalRenderTarget = phenoGBuffer.target;
   gtaoPass.setGBuffer(depthTexture, phenoGBuffer.target.texture);
@@ -4707,8 +4157,6 @@ function ensureGtao() {
   composer.insertPass(gtaoPass, 2);
   return gtaoPass;
 }
-
-/* ---------------- entering and leaving the mode ---------------- */
 
 function setControlValue(key, value) {
   const cfg = controlMap.get(key);
@@ -4771,7 +4219,6 @@ function setPhenomenology(on) {
   applySceneLook();
 }
 
-// Exported presets and editions carry the user's own values, not the ones the mode forces.
 const persistedValue = key => (phenoStash && key in phenoStash) ? phenoStash[key] : formula[key];
 
 function visionOfRoles() {
@@ -4841,9 +4288,9 @@ function rebuild() {
   addTreeObjects(generated);
   if (formula.phenomenology) measureSceneRadius();
 
-  lastZScale = null;   // new group
+  lastZScale = null;
   applyTorusHeight();
-  lastCarrierShapeKey = '';   // new mesh, so let syncShapeUniforms refit its geometry
+  lastCarrierShapeKey = '';
   syncGPU();
   setAnimationUniforms(animClock, structureAlpha);
   buildNestTrees();
@@ -4889,9 +4336,6 @@ function rebuild() {
     `camera view = ${formula.cameraView}, distance = ${formula.cameraDistance.toFixed(2)}`;
 }
 
-// commitOnly: applied on 'change' only, never on 'input'. Structural controls need this
-// because stepStructure() reads formula every frame, so a half-typed m would move the node
-// tree while the meshes and the uM uniform still belonged to the previous value.
 function registerControl(id, key, type, parser = v => v, onApply = null, rebuildOnChange = true, commitOnly = false) {
   const input = document.getElementById(id);
   const output = input.nextElementSibling;
@@ -4932,7 +4376,7 @@ function registerControl(id, key, type, parser = v => v, onApply = null, rebuild
   };
   controlMap.set(key, { input, type, output, parser, sync });
   const event = (type === 'number' || type === 'range' || type === 'color') ? 'input' : 'change';
-  if (commitOnly) input.addEventListener('input', showOnly);   // readout only, no half-applied state
+  if (commitOnly) input.addEventListener('input', showOnly);
   else input.addEventListener(event, () => sync(false));
   input.addEventListener('change', () => sync(true));
   sync(false);
@@ -4942,8 +4386,6 @@ registerControl('m', 'm', 'number', v => parseInt(v, 10), null, true, true);
 registerControl('levels', 'levels', 'range', v => parseInt(v, 10), null, true, true);
 registerControl('delta', 'delta', 'range', Number, null, true, true);
 registerControl('aFill', 'aFill', 'range', Number, () => markStructureDirty(true));
-// Node placement and rendering remain live during a drag. On release, rebuild only when a
-// structural feature needs fresh geometry or even-spread needs new deformed-area quotas.
 const applyLiveShape = (_value, committed) => {
   markStructureDirty(true);
   if (committed && (formula.nestedTori || formula.evenNodes || formula.phenomenology)) rebuild();
@@ -5000,8 +4442,6 @@ registerControl('alphaSpeed', 'alphaSpeed', 'range', Number, null, false);
 registerControl('flowSpeed', 'flowSpeed', 'range', Number, null, false);
 registerControl('showParticles', 'showParticles', 'checkbox');
 registerControl('particleSize', 'particleSize', 'range', Number, null, false);
-// A slider that stays live-looking while its feature is off is the same trap the vignette
-// control fell into, so the inside size greys out when the shift is disabled.
 registerControl('insideSizeShift', 'insideSizeShift', 'checkbox', v => v, on => {
   document.getElementById('particleSizeInside').disabled = !on || phenoActive;
 }, false);
@@ -5052,12 +4492,10 @@ registerControl('phenoEyesFollow', 'phenoEyesFollow', 'checkbox', v => v, v => {
 registerControl('phenoOcclusion', 'phenoOcclusion', 'checkbox', v => v, () => applyPostLook(), false);
 registerControl('phenoFlesh', 'phenoFlesh', 'color', v => v, () => refreshPhenoColours(), false);
 registerControl('phenoPaper', 'phenoPaper', 'color', v => v, () => applySceneLook(), false);
-// registered last, so a preset's own roles and sizes are in place before the mode is entered
 registerControl('phenomenology', 'phenomenology', 'checkbox', v => v, v => setPhenomenology(v));
 document.getElementById('phenoVision').addEventListener('change', event => chooseVision(event.target.value));
 
 function applyPreset(obj) {
-  // leave the mode first, so the values it forces are not mistaken for the preset's own
   if (phenoActive) setPhenomenology(false);
   for (const [key, cfg] of controlMap.entries()) {
     if (!(key in obj)) continue;
@@ -5123,16 +4561,6 @@ document.getElementById('importJson').addEventListener('click', () => document.g
 document.getElementById('hiddenFile').addEventListener('change', e => importPresetFromFile(e.target.files[0]));
 document.getElementById('resetPreset').addEventListener('click', () => applyPreset(defaults));
 
-/* ==================================================================
- * SYMBOL COMPOSER
- *
- * The CSV order is deliberately explicit and exported beside every catalogue.
- * Appending camera pose fields keeps old formula presets compatible while making
- * an edition reproduce the exact OrbitControls view used during composition.
- * ================================================================== */
-// Permanent positional contract for raw ?value,value URLs. Never reorder or remove
-// these slots. New controls added to `defaults` are discovered below and appended,
-// so every URL and catalogue created today remains readable by a future engine.
 const BASE_PARAMETER_ORDER_V1 = [
   'm','levels','delta','aFill','holeRatio','profile','childHeight','bridge','nestedTori','nestedLevels',
   'nestedShells','evenNodes','lodStrength','samples','nodeBudget','animate','alphaSpeed',
@@ -5147,10 +4575,6 @@ const BASE_PARAMETER_ORDER_V1 = [
   'cameraX','cameraY','cameraZ','targetX','targetY','targetZ',
   'cameraUpX','cameraUpY','cameraUpZ','cameraZoom','alphaPhase'
 ];
-// When a new engine control is shipped, append its key here once. Automatic
-// discovery below makes development tolerant, while this registry freezes the
-// released position for every later version.
-// Appended per CATALOGUE-FORMAT.md rule 2: never reorder, never insert before these.
 const PARAMETER_EXTENSION_ORDER = [
   'crossingLattice', 'crossingPoints', 'crossingRootOnly', 'crossingOpacity', 'crossingColor',
   'crossingMode', 'nestChirality', 'nestSpacing', 'nestFractalLevels', 'nestShellOpacity',
@@ -5203,10 +4627,6 @@ function csvToken(value) {
   return String(value ?? '').replaceAll(',', '');
 }
 
-
-// Name-based normalization is deliberately lossless. A newer catalogue opened by
-// this older composer keeps unrecognized trailing fields on save and re-export.
-
 function captureEditionCsv() {
   return valuesToCsv(captureEditionValues());
 }
@@ -5218,8 +4638,6 @@ function captureCompatibleEdition() {
     parameters:[captureEditionCsv(), ...forward.map(entry => entry.value)].join(',')
   };
 }
-
-
 
 function updateParameterPreview() {
   parameterPreview.textContent = captureCompatibleEdition().parameters;
@@ -5243,18 +4661,11 @@ document.querySelectorAll('.panel-toggle').forEach(toggle => {
   });
 });
 
-// ============================================================================
-// Stability AI · control/structure
-// ============================================================================
-
 const STABILITY_ENDPOINT = 'https://api.stability.ai/v2beta/stable-image/control/structure';
 const BALANCE_ENDPOINT = 'https://api.stability.ai/v1/user/balance';
 const KEY_STORAGE = 'tortoise-stability-key';
 const PROMPT_STORAGE = 'tortoise-generator-prompt';
 
-// Stability accepts 4096..9437184 pixels and an aspect ratio inside 1:2.5..2.5:1.
-// Capturing at 1536 on the long side stays well inside both while keeping enough
-// structure for the control model to read the fiber lattice.
 const CAPTURE_MAX_SIDE = 1536;
 const MAX_ASPECT = 2.4;
 const HISTORY_LIMIT = 12;
@@ -5322,11 +4733,6 @@ function showIn(frame, url, alt) {
   frame.appendChild(image);
 }
 
-// ---------------------------------------------------------------- capture
-
-// Stability accepts 4096..9437184 pixels and an aspect ratio inside 1:2.5..2.5:1.
-// Crop to the aspect window first, then scale, so both the colour and depth
-// captures come out framed identically.
 function cropAndEncode(source, sourceWidth, sourceHeight) {
   let sw = sourceWidth;
   let sh = sourceHeight;
@@ -5358,9 +4764,6 @@ function cropAndEncode(source, sourceWidth, sourceHeight) {
   });
 }
 
-// The composer renders through EffectComposer, so the canvas only holds a finished
-// frame straight after composer.render(). preserveDrawingBuffer keeps it readable
-// past the end of the task, which is what lets a click read the current view.
 function captureRenderedView() {
   composer.render();
   const source = renderer.domElement;
@@ -5368,12 +4771,6 @@ function captureRenderedView() {
   return cropAndEncode(source, source.width, source.height);
 }
 
-// ---------------------------------------------------------------- depth pass
-
-// The fibers set gl_Position in their own vertex shaders and the carrier tori are
-// displaced by instanceMatrix, so scene.overrideMaterial with a MeshDepthMaterial
-// would draw a shape that is not this artwork. Rendering the real scene into an
-// attached DepthTexture keeps every custom shader in the pipeline.
 const DEPTH_MAX_SIDE = 2048;
 let depthTarget = null;
 let linearTarget = null;
@@ -5396,15 +4793,12 @@ function buildDepthResources(width, height) {
     { ...options, depthBuffer: false });
 
   if (!depthQuad) {
-    // Linear depth is packed across three 8-bit channels rather than written to a
-    // float target, because RGBA8 readback works on every device while float
-    // colour buffers are not guaranteed readable.
     const material = new THREE.ShaderMaterial({
       uniforms: { tDepth: { value: null }, cameraNear: { value: 0.1 }, cameraFar: { value: 100 } },
-      vertexShader: /* glsl */`
+      vertexShader: `
         varying vec2 vUv;
         void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`,
-      fragmentShader: /* glsl */`
+      fragmentShader: `
         precision highp float;
         varying vec2 vUv;
         uniform sampler2D tDepth;
@@ -5445,9 +4839,6 @@ function ensureDepthResources(width, height) {
   buildDepthResources(width, height);
 }
 
-// At the default torus opacity of 0.98 the carrier tori run with depthWrite off, so
-// an untouched depth render would show the fibers and lose the bodies they sit on.
-// Additive particles stay out: they are glints, not surface.
 function withSolidDepth(action) {
   const restore = [];
   scene.traverse(object => {
@@ -5499,9 +4890,6 @@ function renderDepthPixels() {
   return { pixels, width, height };
 }
 
-// Camera near and far track the orbit distance, so a fixed near..far mapping would
-// waste most of the range. Normalising to the depths actually present puts the full
-// 8-bit ramp across the artwork itself.
 function depthPixelsToCanvas({ pixels, width, height }, invert) {
   const count = width * height;
   const depth = new Float32Array(count);
@@ -5526,7 +4914,6 @@ function depthPixelsToCanvas({ pixels, width, height }, invert) {
   const context = canvas.getContext('2d');
   const image = context.createImageData(width, height);
   for (let y = 0; y < height; y++) {
-    // readRenderTargetPixels returns rows bottom-up; ImageData runs top-down
     const sourceRow = (height - 1 - y) * width;
     const targetRow = y * width;
     for (let x = 0; x < width; x++) {
@@ -5579,14 +4966,10 @@ async function captureView() {
   }
 }
 
-// ---------------------------------------------------------------- api
-
 function readKey() {
   return apiKeyInput.value.trim();
 }
 
-// A failed fetch to a CORS-open host is almost always the network or a proxy, so
-// say that rather than letting a bare "Failed to fetch" surface.
 function describeNetworkFailure(error) {
   if (error instanceof TypeError) {
     return 'Could not reach api.stability.ai. Check the connection, and if this page is open from a file:// path, serve the folder over http://localhost instead.';
@@ -5601,7 +4984,7 @@ async function stabilityError(response) {
     if (Array.isArray(body.errors) && body.errors.length) detail = body.errors.join(' · ');
     else if (body.message) detail = body.message;
     else if (body.name) detail = body.name;
-  } catch { /* non-JSON error body */ }
+  } catch {  }
   if (response.status === 401 || response.status === 403) return `${detail} — check the API key.`;
   if (response.status === 429) return `${detail} — rate limited, wait a moment.`;
   return detail;
@@ -5687,17 +5070,14 @@ async function generate() {
   }
 }
 
-// Balance is free to read, so keep the tag honest after each spend.
 async function refreshBalance(key) {
   try {
     const response = await fetch(BALANCE_ENDPOINT, { headers: { Authorization: `Bearer ${key}` } });
     if (!response.ok) return;
     const credits = Number((await response.json()).credits) || 0;
     balanceTag.textContent = `${Math.round(credits)} credits`;
-  } catch { /* the generation already succeeded; a stale tag is not worth reporting */ }
+  } catch {  }
 }
-
-// ---------------------------------------------------------------- results
 
 function addResult(blob, format, usedSeed, prompt) {
   const entry = {
@@ -5751,8 +5131,6 @@ function renderHistory() {
   }
 }
 
-// A generated image is only useful next to the state that produced it, so the
-// parameter string travels with every download as a sidecar.
 function downloadResult() {
   if (!activeResult) return;
   saveBlob(activeResult.blob, activeResult.name);
@@ -5770,8 +5148,6 @@ function downloadResult() {
   ].join('\n');
   saveBlob(new Blob([sidecar], { type: 'text/plain' }), activeResult.name.replace(/\.\w+$/, '.txt'));
 }
-
-// ---------------------------------------------------------------- wiring
 
 function syncGenerateButton() {
   generateButton.disabled = !controlBlob;
@@ -5811,7 +5187,6 @@ document.getElementById('panel').addEventListener('input', updateParameterPrevie
 document.getElementById('panel').addEventListener('change', updateParameterPreview);
 controls.addEventListener('change', updateParameterPreview);
 
-// mirror the composer's slider read-outs onto the generator's own controls
 for (const input of document.querySelectorAll('#metaPanel .row input, #metaPanel .row select')) {
   const readout = input.parentElement.querySelector('output');
   if (!readout) continue;
@@ -5833,21 +5208,14 @@ function animate() {
   requestAnimationFrame(animate);
 
   const now = performance.now() / 1000;
-  // clamp so a backgrounded tab does not jump alpha by whole seconds on return
   const dt = Math.min(0.05, Math.max(0, now - lastFrame));
   lastFrame = now;
 
   if (formula.animate) {
     animClock += dt;
-    // the attractor is exactly periodic in alpha with period TAU/m (relabel
-    // k -> k+1, l -> l-1), so wrapping there loops seamlessly and keeps float
-    // precision from drifting over a long session. Nests with their own m repeat
-    // together only every TAU/gcd of all the m values, so the wrap waits for that.
     structureAlpha = (structureAlpha + dt * formula.alphaSpeed) % (TAU / loopChirality());
     structureDirty = true;
   }
-  // Live shape controls must also re-solve the recursive sites when animation is paused.
-  // Previously only the root shader moved in that state, leaving every child behind.
   if (structureDirty) {
     stepStructure(structureAlpha);
     syncGPU();

@@ -23,12 +23,33 @@ come back as a temple, a deity, a flower, a machine or anything you describe.
 - **Show the crossing lattice.** Join the fibre crossings, the torus centres, or one of two E8 readings
   (the nearest-in-4D shadow, or links across golden shells), as lines, points or both, on the root torus or
   across the nests, in any colour and opacity.
+- **See it as bodies.** Turn on Phenomenology and the structure is drawn as figures instead of lines (see below).
 - **Light and frame it.** Gold shading, bloom, colours, camera views with exact top and bottom poles, and
   depth of field.
 - **Generate.** Capture the rendered view, or a depth pass of it, then write a prompt and an optional
   negative prompt, and set the structure fidelity, style preset, output format and seed.
 - **Keep everything.** Each download comes with a text file holding the full parameter state behind it,
   and the session keeps your last results side by side.
+
+## Phenomenology
+
+![Phenomenology mode: the fractal torus drawn as arms, faces and a body on a light ground](docs/phenomenology.jpg)
+
+Phenomenology keeps the same structure and draws it as bodies:
+
+- **Fibres** become arms whose hands meet palm to palm at the outer rim, wheels whose rims are full of eyes,
+  or serpents swallowing their own tails.
+- **First-level nodes** become faces, single great eyes, or lotuses.
+- **The bridge** becomes a body, a spine through the centre, or nothing.
+
+Three visions set all three at once: **Vishvarupa** (arms, faces, body), **Ophanim** (wheels, eyes) and
+**Kundalini** (serpents, lotuses, spine). Any other combination is yours to make.
+
+Where fibres of the two families cross, their bodies weave over and under each other instead of passing
+through, and the weave slides with the counter-rotation. The models are sculpted in code from signed distance
+fields when the mode starts, in high detail or low poly. The mode has its own light theme, with an adjustable
+flesh tone and paper colour, and soft shadows. The eyes can follow you as you orbit. Captures, depth passes
+and generation work as before, so a figure can be sent to Stability as a structure reference.
 
 ## Run it
 

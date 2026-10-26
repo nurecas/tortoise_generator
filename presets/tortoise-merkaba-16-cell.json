@@ -1,0 +1,8 @@
+{
+  "m": 2, "levels": 2, "delta": 0.04, "aFill": 0.84,
+  "holeRatio": 0.172, "profile": 1, "childHeight": 1, "bridge": 0, "openTop": 0, "openBottom": 0, "evenNodes": false,
+  "nestedTori": false,
+  "crossingLattice": true, "crossingMode": "crossings", "crossingPoints": true, "crossingRootOnly": true, "crossingOpacity": 0.9,
+  "hideAllFibers": false, "hideRootFibers": false, "showTori": true, "showRootTorus": true,
+  "animate": true, "alphaSpeed": 0.18, "cameraView": "iso"
+}

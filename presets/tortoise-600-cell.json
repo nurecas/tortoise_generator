@@ -1,0 +1,9 @@
+{
+  "m": 5, "levels": 2, "delta": 0.48, "aFill": 0.618,
+  "holeRatio": 0.0807, "profile": 1.11, "childHeight": 1, "bridge": 0, "openTop": 0, "openBottom": 0, "evenNodes": false,
+  "nestedTori": true, "nestedLevels": 1, "nestChirality": "", "nestSpacing": "projected", "nestFractalLevels": 0,
+  "crossingLattice": true, "crossingMode": "e8", "crossingPoints": true, "crossingRootOnly": true,
+  "crossingNests": true, "crossingJoinNests": false, "crossingOpacity": 0.9,
+  "hideAllFibers": false, "hideRootFibers": false, "showTori": true, "showRootTorus": true,
+  "animate": true, "cameraView": "iso"
+}

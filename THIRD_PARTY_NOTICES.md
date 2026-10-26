@@ -27,3 +27,15 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
+
+## Manifold
+
+The 3D print panel loads [Manifold](https://github.com/elalish/manifold) 3.5.4 (the `manifold-3d` package,
+`manifold.js` and `manifold.wasm`) from the jsDelivr CDN at runtime, and only when a printable model is
+built. Manifold is distributed under the
+[Apache License 2.0](https://github.com/elalish/manifold/blob/master/LICENSE).
+
+## Fonts
+
+The interface is set in Montserrat Alternates, Inter and JetBrains Mono, loaded from Google Fonts at runtime.
+All three are distributed under the [SIL Open Font License 1.1](https://openfontlicense.org).

@@ -9,10 +9,15 @@ posters up to 16K and files for pen plotters and lasers.
 It is one HTML file, free and open source under the [MIT License](LICENSE). There is nothing to install,
 and nothing is uploaded.
 
-**[Open it on nurecas.com →](https://nurecas.com/tortoise_generator)** ·
-[The artwork](https://nurecas.com/tortoise) ·
-[Tortoise Visualiser](https://nurecas.com/tortoise_visualiser) ·
-[Nameless](https://nurecas.com/nameless)
+<p align="center">
+  <a href="https://nurecas.com/tortoise_generator"><img src="docs/launch.png" width="340" alt="Launch the Generator"></a>
+</p>
+
+<p align="center">
+  <a href="https://nurecas.com/tortoise">The artwork</a> ·
+  <a href="https://nurecas.com/tortoise_visualiser">Tortoise Visualiser</a> ·
+  <a href="https://nurecas.com/nameless">Nameless</a>
+</p>
 
 **Contents:** [What the Tortoise is](#what-the-tortoise-is) · [Shape it live](#shape-it-live) ·
 [Phenomenology](#phenomenology-21-visions) · [The field](#the-field) · [Structure to Image](#structure-to-image) ·

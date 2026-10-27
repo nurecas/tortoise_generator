@@ -1773,7 +1773,11 @@ function maybeSnapAndLockPole() {
 }
 
 let holeCeiling = 0.9;
-const holeH     = () => Math.min(holeCeiling, Math.max(0.005, formula.holeRatio));
+const CLIFFORD_HOLE = 3 - 2 * Math.SQRT2;
+const holeH     = () => {
+  const h = Math.min(holeCeiling, Math.max(0.005, formula.holeRatio));
+  return Math.abs(h - CLIFFORD_HOLE) < 0.0005 ? CLIFFORD_HOLE : h;
+};
 const shapeC    = () => { const h = holeH(); return (1 + h) / (1 - h); };
 const shapeGeom = () => R0 * (shapeC() - 1);
 const shapeK    = () => { const h = holeH(); return 2 * Math.sqrt(h) / (1 - h); };

@@ -2092,6 +2092,101 @@ function rotatedCircles(depth, alpha) {
   return entry;
 }
 
+const ELLIPSE_ROUND = 1e-6;
+const ELLIPSE_STEPS = 8;
+const ellipseStepCos = new Float64Array(ELLIPSE_STEPS);
+const ellipseStepSin = new Float64Array(ELLIPSE_STEPS);
+for (let j = 0; j < ELLIPSE_STEPS; j++) {
+  ellipseStepCos[j] = Math.cos(0.5 * Math.PI * j / ELLIPSE_STEPS);
+  ellipseStepSin[j] = Math.sin(0.5 * Math.PI * j / ELLIPSE_STEPS);
+}
+
+const fibreEllipse = {
+  m: 0, s0: 0, a: 0, b: 0, inner: 0, outer: 0,
+  cos: new Float64Array(0), sin: new Float64Array(0), ringGap: new Float64Array(0),
+  p: new Float64Array(0), q: new Float64Array(0), h2: new Float64Array(0), bound: new Float64Array(0)
+};
+
+function fibreEllipses(depth, alpha) {
+  const C = shapeC(), geom = shapeGeom(), K2 = C * C - 1;
+  const a = geom * Math.sqrt(2 / K2), b = geom * C / K2;
+  if (Math.abs(a - b) <= ELLIPSE_ROUND * Math.max(a, b)) return null;
+  const E = fibreEllipse, m = formula.m, n = 2 * m;
+  if (E.cos.length < n) {
+    for (const key of ['cos', 'sin', 'ringGap', 'p', 'q', 'h2', 'bound']) E[key] = new Float64Array(n);
+  }
+  E.m = m;
+  E.s0 = geom / K2;
+  E.a = a;
+  E.b = b;
+  E.inner = Math.min(a, b);
+  E.outer = Math.max(a, b);
+  const ph = phaseAtDepth(depth);
+  for (let k = 0; k < m; k++) {
+    const plus = TAU * k / m + ph.plus + alpha, minus = TAU * k / m + ph.minus - alpha;
+    E.cos[k] = Math.cos(plus);
+    E.sin[k] = Math.sin(plus);
+    E.cos[m + k] = Math.cos(minus);
+    E.sin[m + k] = Math.sin(minus);
+  }
+  E.ringGap.fill(-1, 0, n);
+  return E;
+}
+
+function ellipseGap(E, ring, point) {
+  const known = E.ringGap[ring];
+  if (known >= 0) return known;
+  const m = E.m, n = 2 * m, x = point.x, y = point.y, z = point.z;
+  let first = 0;
+  for (let i = 0; i < n; i++) {
+    const c = E.cos[i], s = E.sin[i];
+    const xr = x * c + y * s;
+    const yr = i < m ? y * c - x * s : x * s - y * c;
+    const p = (xr + z) * Math.SQRT1_2, q = yr - E.s0, h = (z - xr) * Math.SQRT1_2;
+    const r = Math.sqrt(p * p + q * q);
+    const out = r > E.outer ? r - E.outer : r < E.inner ? E.inner - r : 0;
+    E.p[i] = Math.abs(p);
+    E.q[i] = Math.abs(q);
+    E.h2[i] = h * h;
+    E.bound[i] = h * h + out * out;
+    if (E.bound[i] < E.bound[first]) first = i;
+  }
+  let best = E.h2[first] + ellipseDistanceSq(E.p[first], E.q[first], E.a, E.b);
+  for (let i = 0; i < n; i++) {
+    if (i === first || E.bound[i] >= best) continue;
+    const d = E.h2[i] + ellipseDistanceSq(E.p[i], E.q[i], E.a, E.b);
+    if (d < best) best = d;
+  }
+  return E.ringGap[ring] = Math.sqrt(best);
+}
+
+function ellipseDistanceSq(p, q, a, b) {
+  p = Math.max(p, 1e-12 * a);
+  q = Math.max(q, 1e-12 * b);
+  const e = a * a - b * b, ap = a * p, bq = b * q;
+  let j = 1, g0 = bq, g1 = -ap;
+  for (; j < ELLIPSE_STEPS; j++) {
+    const c = ellipseStepCos[j], s = ellipseStepSin[j];
+    const g = e * s * c - ap * s + bq * c;
+    if (g <= 0) { g1 = g; break; }
+    g0 = g;
+  }
+  let lo = 0.5 * Math.PI * (j - 1) / ELLIPSE_STEPS, hi = 0.5 * Math.PI * j / ELLIPSE_STEPS;
+  let t = lo + (hi - lo) * g0 / (g0 - g1);
+  for (let i = 0; i < 60; i++) {
+    const c = Math.cos(t), s = Math.sin(t);
+    const g = e * s * c - ap * s + bq * c;
+    if (g > 0) lo = t; else hi = t;
+    let next = t - g / (e * (c * c - s * s) - ap * c - bq * s);
+    if (!(next >= lo && next <= hi)) next = 0.5 * (lo + hi);
+    const step = Math.abs(next - t);
+    t = next;
+    if (step < 1e-12) break;
+  }
+  const dx = a * Math.cos(t) - p, dy = b * Math.sin(t) - q;
+  return dx * dx + dy * dy;
+}
+
 const siteFrameE1 = new THREE.Vector3();
 const siteFrameDv = new THREE.Vector3();
 const siteFrameN = new THREE.Vector3();
@@ -2238,6 +2333,7 @@ function buildSiteTable(depth, alpha) {
   const ph = phaseAtDepth(depth);
   const circles = rotatedCircles(depth, alpha);
   const nCircles = circles.r.length;
+  const ellipses = fibreEllipses(depth, alpha);
 
   const crossingSites = formula.nodeSites === 'crossings';
   const siteOffset = crossingSites ? 0 : 0.5;
@@ -2311,7 +2407,8 @@ function buildSiteTable(depth, alpha) {
           continue;
         }
         let best = Infinity;
-        for (let i = 0; i < nCircles; i++) {
+        if (ellipses) best = ellipseGap(ellipses, ((l - k + q * m) % (2 * m) + 2 * m) % (2 * m), siteGapPoint);
+        else for (let i = 0; i < nCircles; i++) {
           const d = circleDistance(
             siteGapPoint.x, siteGapPoint.y, siteGapPoint.z,
             circles.cx[i], circles.cy[i], circles.cz[i],
